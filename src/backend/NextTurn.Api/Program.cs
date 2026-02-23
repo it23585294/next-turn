@@ -19,6 +19,12 @@ app.UseHttpsRedirection();
 
 app.MapControllers();
 app.MapGet("/health", () => Results.Ok("OK"));
-app.MapGet("/", () => Results.Redirect("/swagger"));
 
-app.Run();
+if (app.Environment.IsDevelopment())
+{
+    app.MapGet("/", () => Results.Redirect("/swagger"));
+}
+else
+{
+    app.MapGet("/", () => Results.Ok("NextTurn API is running"));
+}
