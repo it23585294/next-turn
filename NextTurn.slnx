@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/NextTurn.API/NextTurn.API.csproj" />
+    <Project Path="src/NextTurn.Application/NextTurn.Application.csproj" />
+    <Project Path="src/NextTurn.Domain/NextTurn.Domain.csproj" />
+    <Project Path="src/NextTurn.Infrastructure/NextTurn.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/NextTurn.IntegrationTests/NextTurn.IntegrationTests.csproj" />
+    <Project Path="tests/NextTurn.UnitTests/NextTurn.UnitTests.csproj" />
+  </Folder>
+</Solution>
