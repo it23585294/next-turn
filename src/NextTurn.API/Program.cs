@@ -1,4 +1,5 @@
 using NextTurn.API.Middleware;
+using NextTurn.Application;
 using NextTurn.Infrastructure;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
@@ -7,7 +8,10 @@ WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
-// Registers DbContext, repositories, password hasher, HttpTenantContext, etc.
+// MediatR handlers, FluentValidation validators, ValidationBehavior pipeline.
+builder.Services.AddApplication();
+
+// DbContext, repositories, password hasher, HttpTenantContext, etc.
 builder.Services.AddInfrastructure(builder.Configuration);
 
 // ── Build ─────────────────────────────────────────────────────────────────────
@@ -21,9 +25,14 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+// Exception handlers — must be early so they wrap all downstream middleware.
+// DomainException (400) wraps ValidationException (422) because domain errors
+// are a subset — ordering doesn't matter here since they catch different types.
+app.UseMiddleware<DomainExceptionMiddleware>();
+app.UseMiddleware<ValidationExceptionMiddleware>();
+
 // Resolve TenantId from JWT claim 'tid' or X-Tenant-Id header.
-// Must run after UseAuthentication (once JWT auth is added) so that
-// User.Claims is already populated before this middleware reads them.
+// Placed after exception middlewares so tenant errors are also caught properly.
 app.UseMiddleware<TenantMiddleware>();
 
 app.UseAuthorization();

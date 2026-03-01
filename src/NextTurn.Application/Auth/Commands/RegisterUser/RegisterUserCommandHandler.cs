@@ -1,4 +1,3 @@
-using FluentValidation;
 using MediatR;
 using NextTurn.Application.Common.Interfaces;
 using NextTurn.Domain.Auth.Entities;
@@ -11,14 +10,13 @@ namespace NextTurn.Application.Auth.Commands.RegisterUser;
 /// <summary>
 /// Handles the RegisterUserCommand — orchestrates the full registration flow.
 ///
-/// Steps:
-///   1. Validate input via FluentValidation
-///   2. Construct EmailAddress value object (throws DomainException if invalid format)
-///   3. Check email uniqueness (throws DomainException if already in use)
-///   4. Hash the plaintext password
-///   5. Create the User entity via the factory method
-///   6. Persist the user via IUserRepository
-///   7. Publish UserRegisteredNotification in-process (e.g. to trigger welcome email)
+/// Steps (input validation runs automatically via ValidationBehavior pipeline):
+///   1. Construct EmailAddress value object (DomainException if invalid format)
+///   2. Check email uniqueness (DomainException if already in use)
+///   3. Hash the plaintext password
+///   4. Create the User entity via the factory method
+///   5. Persist the user via IUserRepository
+///   6. Publish UserRegisteredNotification in-process (e.g. to trigger welcome email)
 /// </summary>
 public class RegisterUserCommandHandler : IRequestHandler<RegisterUserCommand, Unit>
 {
@@ -41,20 +39,15 @@ public class RegisterUserCommandHandler : IRequestHandler<RegisterUserCommand, U
 
     public async Task<Unit> Handle(RegisterUserCommand command, CancellationToken cancellationToken)
     {
-        // Step 1 — validate inputs against business rules (password complexity, email format, etc.)
-        var validator = new RegisterUserValidator();
-        var validationResult = await validator.ValidateAsync(command, cancellationToken);
+        // Note: input validation (password complexity, email format, etc.) is handled
+        // automatically by ValidationBehavior in the MediatR pipeline — it runs
+        // RegisterUserValidator before this method is ever invoked.
 
-        if (!validationResult.IsValid)
-        {
-            throw new ValidationException(validationResult.Errors);
-        }
-
-        // Step 2 — construct the EmailAddress value object
+        // Step 1 — construct the EmailAddress value object
         // DomainException is thrown here if the format is invalid (secondary check after FluentValidation)
         var email = new EmailAddress(command.Email);
 
-        // Step 3 — enforce uniqueness — reject duplicate emails
+        // Step 2 — enforce uniqueness — reject duplicate emails
         bool emailTaken = await _userRepository.ExistsAsync(email, cancellationToken);
 
         if (emailTaken)
@@ -62,18 +55,18 @@ public class RegisterUserCommandHandler : IRequestHandler<RegisterUserCommand, U
             throw new DomainException("Email address is already in use.");
         }
 
-        // Step 4 — hash the plaintext password before it ever touches the database
+        // Step 3 — hash the plaintext password before it ever touches the database
         string passwordHash = _passwordHasher.Hash(command.Password);
 
-        // Step 5 — create the User entity via the factory method
+        // Step 4 — create the User entity via the factory method
         // Id, CreatedAt, and IsActive are set internally by User.Create()
         // TenantId comes from the current request's JWT claim via ITenantContext
         User user = User.Create(_tenantContext.TenantId, command.Name, email, command.Phone, passwordHash);
 
-        // Step 6 — persist to the database via the repository abstraction
+        // Step 5 — persist to the database via the repository abstraction
         await _userRepository.AddAsync(user, cancellationToken);
 
-        // Step 7 — publish in-process notification so other modules can react
+        // Step 6 — publish in-process notification so other modules can react
         // (e.g. NotificationModule sends a welcome email)
         await _publisher.Publish(
             new UserRegisteredNotification(user.Id, user.Email.Value),
