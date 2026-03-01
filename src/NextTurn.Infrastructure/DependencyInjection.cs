@@ -42,7 +42,9 @@ public static class DependencyInjection
         // ── Repositories ──────────────────────────────────────────────────────
         // Scoped lifetime matches DbContext — one instance per HTTP request.
         services.AddScoped<IUserRepository, UserRepository>();
-
+        // ── Security ──────────────────────────────────────────────────────────────
+        // Singleton is safe — BcryptPasswordHasher holds no state.
+        services.AddSingleton<IPasswordHasher, BcryptPasswordHasher>();
         return services;
     }
 }
