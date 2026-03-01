@@ -14,6 +14,12 @@ public class User {
   public string PasswordHash { get; private set; }
   public bool IsActive { get; private set; }
 
+  // Required by EF Core for entity materialization (loading from the database).
+  // EF Core cannot bind constructor parameters to owned-type navigations (like EmailAddress),
+  // so it needs a parameterless constructor. Protected prevents accidental use in domain code.
+  // EF Core then sets each property via its backing field / private setter after construction.
+  protected User() { }
+
   private User(Guid id, Guid tenantId, string name, EmailAddress email, string? phone, DateTimeOffset createdAt, string passwordHash, bool isActive)
   {
     Id = id;
