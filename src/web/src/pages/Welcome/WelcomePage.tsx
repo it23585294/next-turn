@@ -1,16 +1,21 @@
 /**
  * WelcomePage — Public landing page for NextTurn.
  *
+ * Audience: end users (people joining queues / booking appointments).
+ * Organisation registration is intentionally de-emphasised — it lives in
+ * a small dedicated section at the very bottom of the page.
+ *
  * Sections:
  *  1. Navbar
- *  2. Hero
- *  3. Stats bar
- *  4. How It Works (3 steps)
- *  5. Feature cards (4)
- *  6. Call-to-action banner
+ *  2. Hero  (with join-queue widget)
+ *  3. How It Works (3 steps)
+ *  4. Feature cards (4)
+ *  5. Call-to-action banner
+ *  6. For Organisations (subtle)
  *  7. Footer
  */
-import { Link } from 'react-router-dom'
+import { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import logoImg from '../../assets/nextTurn-logo.png'
 import styles from './WelcomePage.module.css'
 
@@ -26,6 +31,7 @@ export function WelcomePage() {
         <HowItWorksSection />
         <FeaturesSection />
         <CtaSection />
+        <ForOrgsSection />
       </main>
       <Footer />
     </div>
@@ -49,12 +55,6 @@ function Navbar() {
         </nav>
 
         <div className={styles.navActions}>
-          <Link
-            to="/register-org"
-            className={styles.navLink}
-          >
-            Register Organisation
-          </Link>
           <Link
             to={`/login/${DEMO_TENANT}`}
             className={styles.btnOutline}
@@ -86,11 +86,6 @@ function HeroSection() {
 
       <div className={styles.heroInner}>
         <div className={styles.heroText}>
-          <div className={styles.heroBadge}>
-            <span className={styles.heroBadgeDot} aria-hidden="true" />
-            Queue & Appointment Management
-          </div>
-
           <h1 className={styles.heroHeading}>
             Skip the Wait.<br />
             <span className={styles.heroHeadingAccent}>Take Control.</span>
@@ -116,9 +111,8 @@ function HeroSection() {
           </div>
         </div>
 
-        {/* Visual — Queue card mockup */}
-        <div className={styles.heroVisual} aria-hidden="true">
-          <QueueMockup />
+        <div className={styles.heroVisual}>
+          <JoinQueueWidget />
         </div>
       </div>
     </section>
@@ -133,10 +127,10 @@ function StatsBar() {
     <div className={styles.stats}>
       <div className={styles.statsInner}>
         {[
-          { value: '10,000+', label: 'People served daily' },
-          { value: '200+',    label: 'Organizations onboarded' },
-          { value: '< 30s',   label: 'Average join time' },
-          { value: '99.9%',   label: 'Uptime SLA' },
+          { value: '100% free',  label: 'No cost to join a queue' },
+          { value: 'No install', label: 'Works in any browser' },
+          { value: 'Real-time',  label: 'Live queue position updates' },
+          { value: 'Any device', label: 'Mobile-first design' },
         ].map(({ value, label }) => (
           <div key={label} className={styles.statItem}>
             <span className={styles.statValue}>{value}</span>
@@ -163,13 +157,13 @@ function HowItWorksSection() {
       number: '02',
       icon: <UserPlusIcon />,
       title: 'Create your account',
-      desc: 'Register in under a minute. Your data stays isolated to your organization — no cross-tenant sharing, ever.',
+      desc: 'Sign up in under a minute with just your name and email. No credit card, no lengthy forms.',
     },
     {
       number: '03',
       icon: <TicketIcon />,
       title: 'Join the queue',
-      desc: 'Tap to join a queue or book an appointment. Step away and do something useful — we\'ll notify you when it\'s your turn.',
+      desc: 'Tap to join a queue or book an appointment. Step away and do something useful, we\'ll notify you when it\'s your turn.',
     },
   ]
 
@@ -192,7 +186,9 @@ function HowItWorksSection() {
               <h3 className={styles.stepTitle}>{step.title}</h3>
               <p className={styles.stepDesc}>{step.desc}</p>
               {i < steps.length - 1 && (
-                <div className={styles.stepConnector} aria-hidden="true" />
+                <div className={styles.stepConnector} aria-hidden="true">
+                  <ChevronRightIcon />
+                </div>
               )}
             </div>
           ))}
@@ -217,18 +213,18 @@ function FeaturesSection() {
       icon: <BellRingIcon />,
       title: 'Real-time notifications',
       desc: 'Get notified when your turn is approaching. No more anxiously watching a screen or losing your place.',
-      accent: false,
-    },
-    {
-      icon: <ShieldCheckIcon />,
-      title: 'Tenant isolation',
-      desc: 'Each organization\'s data is fully isolated. Your information never bleeds across organizational boundaries.',
       accent: true,
     },
     {
-      icon: <ChartIcon />,
-      title: 'Staff dashboards',
-      desc: 'Counters and clerks get a live view of the queue, can serve, skip, or call queued customers with one tap.',
+      icon: <TicketIcon />,
+      title: 'Wait from anywhere',
+      desc: 'Join virtually and carry on with your day. Run errands, grab a coffee,  we\'ll bring you back when it\'s nearly your turn.',
+      accent: true,
+    },
+    {
+      icon: <CalendarIcon />,
+      title: 'Book appointments too',
+      desc: 'Prefer a set time? Book an appointment slot instead of joining a live queue, same easy experience, your choice of format.',
       accent: false,
     },
   ]
@@ -240,17 +236,13 @@ function FeaturesSection() {
           <span className={styles.sectionBadge}>What you get</span>
           <h2 className={styles.sectionTitle}>Everything you need</h2>
           <p className={styles.sectionDesc}>
-            From citizens joining a queue to staff managing service counters —
-            NextTurn handles every side of the experience.
+            Skip the wait, track your spot, and get served, without ever standing in a line.
           </p>
         </div>
 
         <div className={styles.featureGrid}>
           {features.map((f) => (
-            <div
-              key={f.title}
-              className={`${styles.featureCard} ${f.accent ? styles.featureCardAccent : ''}`}
-            >
+            <div key={f.title} className={`${styles.featureCard} ${f.accent ? styles.featureCardAccent : ''}`}>
               <div className={`${styles.featureIconWrap} ${f.accent ? styles.featureIconWrapAccent : ''}`}>
                 {f.icon}
               </div>
@@ -284,12 +276,38 @@ function CtaSection() {
             Get Started — It's Free
             <ArrowRightIcon />
           </Link>
-          <p style={{ marginTop: 'var(--space-4)', fontSize: 'var(--font-size-sm)', color: 'rgba(255,255,255,0.7)' }}>
-            Want to offer services on NextTurn?{' '}
-            <Link to="/register-org" style={{ color: 'rgba(255,255,255,0.9)', fontWeight: 600, textDecoration: 'underline' }}>
-              Register your organisation →
-            </Link>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+/* ============================================================
+   For Organisations — subtle bottom section
+   ============================================================ */
+function ForOrgsSection() {
+  return (
+    <section className={styles.forOrgs} aria-labelledby="for-orgs-heading">
+      <div className={styles.forOrgsInner}>
+        <div className={styles.forOrgsIcon} aria-hidden="true">
+          <BuildingIcon />
+        </div>
+        <div className={styles.forOrgsBody}>
+          <p className={styles.forOrgsEyebrow}>For organisations</p>
+          <h2 id="for-orgs-heading" className={styles.forOrgsTitle}>
+            Offer queue &amp; appointment services to your clients
+          </h2>
+          <p className={styles.forOrgsDesc}>
+            Register your organisation on NextTurn to manage service queues,
+            appointment slots, and staff counters, all in one place. Your
+            account is reviewed and activated by our team, usually within 24 hours.
           </p>
+        </div>
+        <div className={styles.forOrgsCta}>
+          <Link to="/register-org" className={styles.forOrgsLink}>
+            Register your organisation
+            <ArrowRightIcon />
+          </Link>
         </div>
       </div>
     </section>
@@ -316,48 +334,60 @@ function Footer() {
 }
 
 /* ============================================================
-   Queue Mockup card (decorative illustration)
+   Join Queue Widget
    ============================================================ */
-function QueueMockup() {
-  const items = [
-    { initials: 'MS', name: 'Maria Santos',  ticket: 'A-047', active: true  },
-    { initials: 'JD', name: 'Juan Dela Cruz', ticket: 'A-048', active: false },
-    { initials: 'AC', name: 'Ana Cruz',       ticket: 'A-049', active: false },
-  ]
+function JoinQueueWidget() {
+  const [value, setValue] = useState('')
+  const navigate = useNavigate()
+
+  function handleJoin(e: React.FormEvent) {
+    e.preventDefault()
+    const raw = value.trim()
+    if (!raw) return
+
+    try {
+      // Accept full URLs — extract the pathname so we stay in-app
+      const url = new URL(raw)
+      navigate(url.pathname + url.search)
+    } catch {
+      // Treat as a relative path (e.g. pasted from a share card)
+      navigate(raw.startsWith('/') ? raw : `/${raw}`)
+    }
+  }
+
   return (
-    <div className={styles.mockup}>
-      <div className={styles.mockupHeader}>
-        <span className={styles.mockupDot} style={{ background: '#ff5f57' }} />
-        <span className={styles.mockupDot} style={{ background: '#ffbd2e' }} />
-        <span className={styles.mockupDot} style={{ background: '#28c940' }} />
-        <span className={styles.mockupTitle}>Live Queue — Window 3</span>
-      </div>
-      <div className={styles.mockupBody}>
-        <div className={styles.mockupNowServing}>
-          <span className={styles.mockupNowLabel}>NOW SERVING</span>
-          <span className={styles.mockupNowTicket}>A-046</span>
+    <div className={styles.joinWidget}>
+      <p className={styles.joinWidgetLabel}>Have a queue link?</p>
+      <h2 className={styles.joinWidgetTitle}>Join your queue instantly</h2>
+      <p className={styles.joinWidgetHint}>
+        Your organisation shared a link with you, paste it below and
+        we'll take you straight there.
+      </p>
+      <form className={styles.joinForm} onSubmit={handleJoin} noValidate>
+        <div className={styles.joinInputWrap}>
+          <LinkIcon />
+          <input
+            type="url"
+            className={styles.joinInput}
+            placeholder="Paste your queue link here…"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            aria-label="Queue link"
+            autoComplete="off"
+            spellCheck={false}
+          />
         </div>
-        <div className={styles.mockupQueue}>
-          {items.map((item) => (
-            <div
-              key={item.ticket}
-              className={`${styles.mockupItem} ${item.active ? styles.mockupItemActive : ''}`}
-            >
-              <div className={styles.mockupAvatar}>{item.initials}</div>
-              <div className={styles.mockupItemInfo}>
-                <span className={styles.mockupItemName}>{item.name}</span>
-                <span className={styles.mockupItemTicket}>{item.ticket}</span>
-              </div>
-              {item.active && (
-                <div className={styles.mockupBadge}>
-                  <span className={styles.mockupBadgePulse} />
-                  Next
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
+        <button type="submit" className={styles.joinBtn} disabled={!value.trim()}>
+          Join Queue
+          <ArrowRightIcon />
+        </button>
+      </form>
+      <p className={styles.joinWidgetSub}>
+        Don't have a link yet?{' '}
+        <a href="#how-it-works" className={styles.joinWidgetSubLink}>
+          See how it works
+        </a>
+      </p>
     </div>
   )
 }
@@ -425,22 +455,43 @@ function BellRingIcon() {
     </svg>
   )
 }
-function ShieldCheckIcon() {
+function CalendarIcon() {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
       stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-      <polyline points="9 12 11 14 15 10"/>
+      <rect x="3" y="4" width="18" height="18" rx="2"/>
+      <line x1="16" y1="2" x2="16" y2="6"/>
+      <line x1="8"  y1="2" x2="8"  y2="6"/>
+      <line x1="3"  y1="10" x2="21" y2="10"/>
     </svg>
   )
 }
-function ChartIcon() {
+function ChevronRightIcon() {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="18" y1="20" x2="18" y2="10"/>
-      <line x1="12" y1="20" x2="12" y2="4"/>
-      <line x1="6"  y1="20" x2="6"  y2="14"/>
+      stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="9 18 15 12 9 6"/>
+    </svg>
+  )
+}
+function BuildingIcon() {
+  return (
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"
+      aria-hidden="true">
+      <rect x="3" y="3" width="18" height="18" rx="2"/>
+      <path d="M3 9h18"/>
+      <path d="M9 21V9"/>
+    </svg>
+  )
+}
+function LinkIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+      aria-hidden="true">
+      <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/>
+      <path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/>
     </svg>
   )
 }

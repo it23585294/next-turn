@@ -90,7 +90,6 @@ export function OrgRegistrationPage() {
       <HeroPanel />
 
       <div className={styles.formPanel}>
-        <div className={styles.formScroll}>
           <div className={styles.formContainer}>
 
             {/* Header */}
@@ -277,7 +276,6 @@ export function OrgRegistrationPage() {
               <Link to="/" className={styles.link}>Back to home</Link>
             </p>
           </div>
-        </div>
       </div>
     </div>
   )
