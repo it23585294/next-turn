@@ -1,5 +1,6 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
 using NextTurn.API.Middleware;
@@ -32,6 +33,11 @@ builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
+        // Disable ASP.NET Core's default claim-type renaming so the raw JWT claim
+        // names (e.g. "role", "sub") are preserved. Without this, "role" gets
+        // remapped to the long WS-Federation claim URI, breaking RequireClaim("role").
+        options.MapInboundClaims = false;
+
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer           = true,
@@ -46,6 +52,39 @@ builder.Services
             ClockSkew                = TimeSpan.Zero, // no grace period — tokens expire exactly at 'exp'
         };
     });
+
+// ── Authorization policies ──────────────────────────────────────────────────────
+// Named policies backed by the "role" JWT claim (preserved as-is via MapInboundClaims = false).
+// Hierarchy: SystemAdmin ⊃ OrgAdmin ⊃ Staff ⊃ User.
+// A global FallbackPolicy requires every endpoint to be authenticated unless
+// explicitly decorated with [AllowAnonymous] (register, login).
+builder.Services.AddAuthorization(options =>
+{
+    // Any authenticated user
+    options.AddPolicy("IsUser", policy =>
+        policy.RequireAuthenticatedUser()
+              .RequireClaim("role", "User", "Staff", "OrgAdmin", "SystemAdmin"));
+
+    // Staff and above
+    options.AddPolicy("IsStaff", policy =>
+        policy.RequireAuthenticatedUser()
+              .RequireClaim("role", "Staff", "OrgAdmin", "SystemAdmin"));
+
+    // Org admins and above
+    options.AddPolicy("IsOrgAdmin", policy =>
+        policy.RequireAuthenticatedUser()
+              .RequireClaim("role", "OrgAdmin", "SystemAdmin"));
+
+    // Platform-wide admin only
+    options.AddPolicy("IsSystemAdmin", policy =>
+        policy.RequireAuthenticatedUser()
+              .RequireClaim("role", "SystemAdmin"));
+
+    // Global fallback: every endpoint requires a valid JWT unless [AllowAnonymous] is present.
+    options.FallbackPolicy = new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build();
+});
 
 // ── Rate limiting ─────────────────────────────────────────────────────────────
 // Sliding window: max 10 requests per 60-second window per client IP.

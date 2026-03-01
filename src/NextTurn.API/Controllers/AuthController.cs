@@ -1,4 +1,5 @@
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using NextTurn.API.Models.Auth;
@@ -47,6 +48,7 @@ public sealed class AuthController : ControllerBase
     ///   422 — input validation failed (e.g. missing field, weak password)
     /// </remarks>
     [HttpPost("register")]
+    [AllowAnonymous]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status422UnprocessableEntity)]
@@ -80,6 +82,7 @@ public sealed class AuthController : ControllerBase
     ///   429 — rate limit exceeded
     /// </remarks>
     [HttpPost("login")]
+    [AllowAnonymous]
     [EnableRateLimiting("login")]
     [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
