@@ -5,37 +5,45 @@ namespace NextTurn.Domain.Auth.Entities;
 
 public class User {
 
-  public Guid Id { get; }                           // would generate a new uuid (eg: 3f2504e0-4f89-11d3-9a0c-0305e82c3301)
-  public string Name { get; private set; }          // only code inside this class can write this
+  public Guid Id { get; }
+  public Guid TenantId { get; private set; }        // which organisation this user belongs to (multi-tenancy)
+  public string Name { get; private set; }
   public EmailAddress Email { get; private set; }
-  public string? Phone { get; private set; }        // this is nullable, meaning it could be empty and no errors would be thrown (we have enforced nullability)
-  public DateTimeOffset CreatedAt { get; }          // considers utc diff as well (otherwise it would break in other countries)
+  public string? Phone { get; private set; }
+  public DateTimeOffset CreatedAt { get; }
   public string PasswordHash { get; private set; }
   public bool IsActive { get; private set; }
 
-  private User(Guid Id, string Name, EmailAddress Email, string? Phone, DateTimeOffset CreatedAt, string PasswordHash, bool IsActive) {
-    this.Id = Id;
-    this.Name = Name;
-    this.Phone = Phone;
-    this.Email = Email;
-    this.CreatedAt = CreatedAt;
-    this.PasswordHash = PasswordHash;
-    this.IsActive = IsActive;
+  private User(Guid id, Guid tenantId, string name, EmailAddress email, string? phone, DateTimeOffset createdAt, string passwordHash, bool isActive)
+  {
+    Id = id;
+    TenantId = tenantId;
+    Name = name;
+    Email = email;
+    Phone = phone;
+    CreatedAt = createdAt;
+    PasswordHash = passwordHash;
+    IsActive = isActive;
   }
 
-  public static User Create(string name, EmailAddress email, string? phone, string passwordHash) {
-    // validation
-    if(string.IsNullOrWhiteSpace(name)) {
+  public static User Create(Guid tenantId, string name, EmailAddress email, string? phone, string passwordHash)
+  {
+    if (string.IsNullOrWhiteSpace(name))
       throw new DomainException("Name is required.");
-    }
-    else if(string.IsNullOrWhiteSpace(passwordHash)) {
-      throw new DomainException("Password cannot be empty.");
-    }
 
-    Guid id = Guid.NewGuid();
-    DateTimeOffset createdAt = DateTimeOffset.UtcNow;
+    if (string.IsNullOrWhiteSpace(passwordHash))
+      throw new DomainException("Password hash is required.");
 
-    return new User(id, name, email, phone, createdAt, passwordHash, true);
+    return new User(
+      id: Guid.NewGuid(),
+      tenantId: tenantId,
+      name: name,
+      email: email,
+      phone: phone,
+      createdAt: DateTimeOffset.UtcNow,
+      passwordHash: passwordHash,
+      isActive: true
+    );
   }
 
   public void Activate() {

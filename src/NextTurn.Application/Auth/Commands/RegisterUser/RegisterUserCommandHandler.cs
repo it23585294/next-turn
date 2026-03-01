@@ -25,15 +25,18 @@ public class RegisterUserCommandHandler : IRequestHandler<RegisterUserCommand, U
     private readonly IUserRepository _userRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IPublisher _publisher;
+    private readonly ITenantContext _tenantContext;
 
     public RegisterUserCommandHandler(
         IUserRepository userRepository,
         IPasswordHasher passwordHasher,
-        IPublisher publisher)
+        IPublisher publisher,
+        ITenantContext tenantContext)
     {
         _userRepository = userRepository;
         _passwordHasher = passwordHasher;
         _publisher = publisher;
+        _tenantContext = tenantContext;
     }
 
     public async Task<Unit> Handle(RegisterUserCommand command, CancellationToken cancellationToken)
@@ -64,7 +67,8 @@ public class RegisterUserCommandHandler : IRequestHandler<RegisterUserCommand, U
 
         // Step 5 — create the User entity via the factory method
         // Id, CreatedAt, and IsActive are set internally by User.Create()
-        User user = User.Create(command.Name, email, command.Phone, passwordHash);
+        // TenantId comes from the current request's JWT claim via ITenantContext
+        User user = User.Create(_tenantContext.TenantId, command.Name, email, command.Phone, passwordHash);
 
         // Step 6 — persist to the database via the repository abstraction
         await _userRepository.AddAsync(user, cancellationToken);
