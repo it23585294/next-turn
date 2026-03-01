@@ -54,6 +54,13 @@ public static class DependencyInjection
         // Singleton is safe — BcryptPasswordHasher holds no state.
         services.AddSingleton<IPasswordHasher, BcryptPasswordHasher>();
 
+        // ── JWT ───────────────────────────────────────────────────────────────
+        // Bind the "JwtSettings" section to the strongly-typed POCO.
+        // IOptions<JwtSettings> is then injected into JwtTokenService.
+        services.Configure<JwtSettings>(configuration.GetSection("JwtSettings"));
+        // Scoped matches the request lifetime — consistent with other auth services.
+        services.AddScoped<IJwtTokenService, JwtTokenService>();
+
         return services;
     }
 }
