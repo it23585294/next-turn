@@ -38,20 +38,30 @@ public sealed class DomainExceptionMiddleware
         }
         catch (DomainException ex)
         {
+            // ConflictDomainException (subclass) → 409 Conflict
+            // Base DomainException → 400 Bad Request
+            bool isConflict = ex is ConflictDomainException;
+
+            int statusCode = isConflict
+                ? StatusCodes.Status409Conflict
+                : StatusCodes.Status400BadRequest;
+
+            string title = isConflict ? "Conflict" : "Business Rule Violation";
+
             _logger.LogInformation(
                 "Domain rule violated at {Method} {Path}: {Message}",
                 context.Request.Method,
                 context.Request.Path,
                 ex.Message);
 
-            context.Response.StatusCode = StatusCodes.Status400BadRequest;
+            context.Response.StatusCode = statusCode;
             context.Response.ContentType = "application/problem+json";
 
             var problem = new
             {
                 type = "https://tools.ietf.org/html/rfc9110#section-15.5.1",
-                title = "Business Rule Violation",
-                status = StatusCodes.Status400BadRequest,
+                title,
+                status = statusCode,
                 detail = ex.Message,
                 instance = context.Request.Path.ToString()
             };
