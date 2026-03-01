@@ -24,6 +24,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\NextTurn.Domain\NextTurn.Domain.csproj" />
     <ProjectReference Include="..\..\src\NextTurn.Application\NextTurn.Application.csproj" />
+    <ProjectReference Include="..\..\src\NextTurn.Infrastructure\NextTurn.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

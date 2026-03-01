@@ -68,4 +68,16 @@ public sealed class UserRepository : IUserRepository
         // Unit of Work orchestration is needed at this scope.
         await _context.SaveChangesAsync(cancellationToken);
     }
+
+    /// <inheritdoc/>
+    public async Task UpdateAsync(
+        User user,
+        CancellationToken cancellationToken = default)
+    {
+        // Mark all scalar properties as modified — EF Core generates a full UPDATE.
+        // Used by the login handler to persist FailedLoginAttempts and LockoutUntil
+        // after each authentication attempt.
+        _context.Users.Update(user);
+        await _context.SaveChangesAsync(cancellationToken);
+    }
 }

@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using NextTurn.Domain.Auth;
 using NextTurn.Domain.Auth.Entities;
 
 namespace NextTurn.Infrastructure.Persistence.Configurations.Auth;
@@ -70,5 +71,27 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(u => u.IsActive)
             .IsRequired()
             .HasDefaultValue(true);
+
+        // ── Role & security columns (added in NT-11) ──────────────────────────
+
+        // Store role as a string (e.g. "User", "Staff") rather than an integer.
+        // String storage is self-documenting in the database and survives enum reordering.
+        builder.Property(u => u.Role)
+            .IsRequired()
+            .HasMaxLength(20)
+            .HasDefaultValue(UserRole.User)
+            .HasConversion<string>();
+
+        builder.Property(u => u.FailedLoginAttempts)
+            .IsRequired()
+            .HasDefaultValue(0);
+
+        // Nullable — null means the account is not locked.
+        builder.Property(u => u.LockoutUntil);
+
+        // Always false in Sprint 1. Column reserved for future MFA implementation.
+        builder.Property(u => u.MfaEnabled)
+            .IsRequired()
+            .HasDefaultValue(false);
     }
 }

@@ -50,6 +50,13 @@ function Navbar() {
 
         <div className={styles.navActions}>
           <Link
+            to={`/login/${DEMO_TENANT}`}
+            className={styles.btnOutline}
+            style={{ marginRight: 'var(--space-2)' }}
+          >
+            Sign In
+          </Link>
+          <Link
             to={`/register/${DEMO_TENANT}`}
             className={styles.btnOutline}
           >

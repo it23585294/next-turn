@@ -16,7 +16,7 @@ public class ApplicationDbContextFactory : IDesignTimeDbContextFactory<Applicati
     public ApplicationDbContext CreateDbContext(string[] args)
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
-            .UseSqlServer("Server=localhost,1433;Database=NextTurnDb;User Id=sa;Password=YourStrong@Password1;TrustServerCertificate=True")
+            .UseSqlServer("Server=localhost,1433;Database=NextTurnDev;User Id=sa;Password=NextTurn_Dev#2026;TrustServerCertificate=True")
             .Options;
 
         // Dummy tenant context for design-time — TenantId value doesn't matter
