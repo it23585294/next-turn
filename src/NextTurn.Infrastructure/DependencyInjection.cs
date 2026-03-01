@@ -4,6 +4,8 @@ using Microsoft.Extensions.Configuration;
 using NextTurn.Application.Common.Interfaces;
 using NextTurn.Domain.Auth.Repositories;
 using NextTurn.Infrastructure.Auth;
+using NextTurn.Infrastructure.BusinessRegistry;
+using NextTurn.Infrastructure.Email;
 using NextTurn.Infrastructure.Persistence;
 
 namespace NextTurn.Infrastructure;
@@ -60,6 +62,12 @@ public static class DependencyInjection
         services.Configure<JwtSettings>(configuration.GetSection("JwtSettings"));
         // Scoped matches the request lifetime — consistent with other auth services.
         services.AddScoped<IJwtTokenService, JwtTokenService>();
+
+        // ── External service stubs (Sprint 1) ─────────────────────────────────
+        // Real implementations (SMTP/SendGrid, business registry API) are wired
+        // in a later sprint — swap these registrations then.
+        services.AddScoped<IEmailService, StubEmailService>();
+        services.AddScoped<IBusinessRegistryService, StubBusinessRegistryService>();
 
         return services;
     }
