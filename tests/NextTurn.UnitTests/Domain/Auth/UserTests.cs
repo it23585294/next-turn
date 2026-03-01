@@ -1,4 +1,5 @@
 using FluentAssertions;
+using NextTurn.Domain.Auth;
 using NextTurn.Domain.Auth.Entities;
 using NextTurn.Domain.Auth.ValueObjects;
 using NextTurn.Domain.Common;
@@ -130,5 +131,159 @@ public sealed class UserTests
         user.Activate(); // no-op
         
         user.IsActive.Should().BeTrue();
+    }
+
+    // ── Role & security initial state ─────────────────────────────────────────
+
+    [Fact]
+    public void Create_WithNoRoleSpecified_DefaultsToUserRole()
+    {
+        var user = User.Create(ValidTenantId, ValidName, ValidEmail, null, ValidPasswordHash);
+
+        user.Role.Should().Be(UserRole.User);
+    }
+
+    [Theory]
+    [InlineData(UserRole.Staff)]
+    [InlineData(UserRole.OrgAdmin)]
+    [InlineData(UserRole.SystemAdmin)]
+    public void Create_WithExplicitRole_SetsRoleCorrectly(UserRole role)
+    {
+        var user = User.Create(ValidTenantId, ValidName, ValidEmail, null, ValidPasswordHash, role);
+
+        user.Role.Should().Be(role);
+    }
+
+    [Fact]
+    public void Create_SetsInitialFailedLoginAttemptsToZero()
+    {
+        var user = User.Create(ValidTenantId, ValidName, ValidEmail, null, ValidPasswordHash);
+
+        user.FailedLoginAttempts.Should().Be(0);
+    }
+
+    [Fact]
+    public void Create_SetsLockoutUntilToNull()
+    {
+        var user = User.Create(ValidTenantId, ValidName, ValidEmail, null, ValidPasswordHash);
+
+        user.LockoutUntil.Should().BeNull();
+    }
+
+    [Fact]
+    public void Create_SetsMfaEnabledToFalse()
+    {
+        var user = User.Create(ValidTenantId, ValidName, ValidEmail, null, ValidPasswordHash);
+
+        user.MfaEnabled.Should().BeFalse();
+    }
+
+    // ── RecordFailedLogin ─────────────────────────────────────────────────────
+
+    [Fact]
+    public void RecordFailedLogin_FirstAttempt_IncrementsCounterToOne()
+    {
+        var user = User.Create(ValidTenantId, ValidName, ValidEmail, null, ValidPasswordHash);
+
+        user.RecordFailedLogin();
+
+        user.FailedLoginAttempts.Should().Be(1);
+    }
+
+    [Fact]
+    public void RecordFailedLogin_BelowThreshold_DoesNotLockAccount()
+    {
+        var user = User.Create(ValidTenantId, ValidName, ValidEmail, null, ValidPasswordHash);
+
+        user.RecordFailedLogin(); // attempt 1
+        user.RecordFailedLogin(); // attempt 2
+
+        user.IsLockedOut().Should().BeFalse();
+        user.LockoutUntil.Should().BeNull();
+    }
+
+    [Fact]
+    public void RecordFailedLogin_OnThirdAttempt_LocksAccount()
+    {
+        var user = User.Create(ValidTenantId, ValidName, ValidEmail, null, ValidPasswordHash);
+
+        user.RecordFailedLogin(); // 1
+        user.RecordFailedLogin(); // 2
+        user.RecordFailedLogin(); // 3 — threshold reached
+
+        user.IsLockedOut().Should().BeTrue();
+        user.LockoutUntil.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void RecordFailedLogin_OnThirdAttempt_LockoutIsApproximatelyTenMinutes()
+    {
+        var before = DateTimeOffset.UtcNow.AddMinutes(10);
+        var user = User.Create(ValidTenantId, ValidName, ValidEmail, null, ValidPasswordHash);
+
+        user.RecordFailedLogin();
+        user.RecordFailedLogin();
+        user.RecordFailedLogin();
+        var after = DateTimeOffset.UtcNow.AddMinutes(10);
+
+        user.LockoutUntil.Should().BeOnOrAfter(before).And.BeOnOrBefore(after);
+    }
+
+    // ── IsLockedOut ───────────────────────────────────────────────────────────
+
+    [Fact]
+    public void IsLockedOut_WhenNotLocked_ReturnsFalse()
+    {
+        var user = User.Create(ValidTenantId, ValidName, ValidEmail, null, ValidPasswordHash);
+
+        user.IsLockedOut().Should().BeFalse();
+    }
+
+    [Fact]
+    public void IsLockedOut_WhenLockoutIsInFuture_ReturnsTrue()
+    {
+        var user = User.Create(ValidTenantId, ValidName, ValidEmail, null, ValidPasswordHash);
+
+        user.Lock(TimeSpan.FromMinutes(10));
+
+        user.IsLockedOut().Should().BeTrue();
+    }
+
+    [Fact]
+    public void IsLockedOut_WhenLockoutHasExpired_ReturnsFalse()
+    {
+        var user = User.Create(ValidTenantId, ValidName, ValidEmail, null, ValidPasswordHash);
+        // Lock with a duration that is already in the past by passing a negative span
+        user.Lock(TimeSpan.FromMilliseconds(-1));
+
+        user.IsLockedOut().Should().BeFalse();
+    }
+
+    // ── Lock / Unlock ─────────────────────────────────────────────────────────
+
+    [Fact]
+    public void Lock_SetsLockoutUntilToFutureTime()
+    {
+        var user = User.Create(ValidTenantId, ValidName, ValidEmail, null, ValidPasswordHash);
+
+        user.Lock(TimeSpan.FromMinutes(5));
+
+        user.LockoutUntil.Should().NotBeNull();
+        user.LockoutUntil!.Value.Should().BeAfter(DateTimeOffset.UtcNow);
+    }
+
+    [Fact]
+    public void Unlock_ResetsFailedAttemptsToZeroAndClearsLockout()
+    {
+        var user = User.Create(ValidTenantId, ValidName, ValidEmail, null, ValidPasswordHash);
+        user.RecordFailedLogin();
+        user.RecordFailedLogin();
+        user.RecordFailedLogin(); // now locked
+
+        user.Unlock();
+
+        user.FailedLoginAttempts.Should().Be(0);
+        user.LockoutUntil.Should().BeNull();
+        user.IsLockedOut().Should().BeFalse();
     }
 }
