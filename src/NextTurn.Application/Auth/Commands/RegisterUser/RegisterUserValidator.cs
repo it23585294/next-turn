@@ -1,0 +1,33 @@
+using FluentValidation;
+
+namespace NextTurn.Application.Auth.Commands.RegisterUser;
+
+/// <summary>
+/// Validates a RegisterUserCommand before the handler processes it.
+/// Each RuleFor chain maps to one acceptance criterion from the story.
+/// </summary>
+public class RegisterUserValidator : AbstractValidator<RegisterUserCommand>
+{
+    public RegisterUserValidator()
+    {
+        RuleFor(x => x.Name)
+            .NotEmpty().WithMessage("Name is required.")
+            .MaximumLength(100).WithMessage("Name must not exceed 100 characters.");
+
+        RuleFor(x => x.Email)
+            .NotEmpty().WithMessage("Email is required.")
+            .EmailAddress().WithMessage("Email format is invalid.")
+            .MaximumLength(254).WithMessage("Email must not exceed 254 characters.");
+
+        RuleFor(x => x.Phone)
+            .MaximumLength(20).WithMessage("Phone number must not exceed 20 characters.")
+            .When(x => x.Phone is not null); // only validate if provided
+
+        RuleFor(x => x.Password)
+            .NotEmpty().WithMessage("Password is required.")
+            .MinimumLength(8).WithMessage("Password must be at least 8 characters.")
+            .Matches("[A-Z]").WithMessage("Password must contain at least one uppercase letter.")
+            .Matches("[0-9]").WithMessage("Password must contain at least one number.")
+            .Matches("[^a-zA-Z0-9]").WithMessage("Password must contain at least one special character.");
+    }
+}
