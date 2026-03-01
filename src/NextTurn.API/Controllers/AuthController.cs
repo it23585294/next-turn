@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using NextTurn.API.Models.Auth;
+using NextTurn.Application.Auth;
 using NextTurn.Application.Auth.Commands.LoginUser;
 using NextTurn.Application.Auth.Commands.RegisterUser;
 
@@ -62,5 +63,43 @@ public sealed class AuthController : ControllerBase
         await _sender.Send(command, cancellationToken);
 
         return StatusCode(StatusCodes.Status201Created);
+    }
+
+    /// <summary>
+    /// Authenticate an existing user and return a signed JWT.
+    /// </summary>
+    /// <remarks>
+    /// Expects an X-Tenant-Id header (Guid) to scope the lookup to the correct tenant.
+    ///
+    /// Rate limited to 10 requests per 60-second sliding window per client IP.
+    /// Returns HTTP 429 if the limit is exceeded.
+    ///
+    /// Error responses:
+    ///   400 — invalid credentials, account locked, or domain rule violated
+    ///   422 — input validation failure (missing or malformed field)
+    ///   429 — rate limit exceeded
+    /// </remarks>
+    [HttpPost("login")]
+    [EnableRateLimiting("login")]
+    [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> Login(
+        [FromBody] LoginRequest request,
+        CancellationToken cancellationToken)
+    {
+        var command = new LoginUserCommand(request.Email, request.Password);
+
+        LoginResult result = await _sender.Send(command, cancellationToken);
+
+        var response = new LoginResponse(
+            result.AccessToken,
+            result.UserId,
+            result.Name,
+            result.Email,
+            result.Role);
+
+        return Ok(response);
     }
 }

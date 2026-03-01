@@ -21,9 +21,11 @@ namespace NextTurn.IntegrationTests;
 ///   - DisposeAsync: stop container
 ///
 /// Why EnsureCreatedAsync instead of MigrateAsync?
-///   Migrations don't exist yet — they're created in the DevOps sprint once Docker SQL
-///   is running. EnsureCreatedAsync creates the exact schema EF Core knows about from
-///   the model configurations, which is the correct contract to test against.
+///   Tests use EnsureCreatedAsync to create the schema directly from the EF Core model,
+///   bypassing the migration history table. This means tests always run against the
+///   current model shape — add a column in configuration and it's immediately reflected
+///   in tests without running a migration. MigrateAsync is used only for the real
+///   development and production databases.
 /// </summary>
 public sealed class NextTurnWebApplicationFactory
     : WebApplicationFactory<Program>, IAsyncLifetime
@@ -82,7 +84,15 @@ public sealed class NextTurnWebApplicationFactory
         {
             config.AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["ConnectionStrings:DefaultConnection"] = _sqlContainer.GetConnectionString()
+                ["ConnectionStrings:DefaultConnection"] = _sqlContainer.GetConnectionString(),
+                // The Testing environment does not load appsettings.Development.json.
+                // Inject a valid JWT secret so the JwtBearer handler can initialise its
+                // SymmetricSecurityKey (requires at least 16 characters / 128-bit key).
+                // This value is test-only — it never leaves the test process.
+                ["JwtSettings:Secret"]        = "integration-test-secret-32-chars!!",
+                ["JwtSettings:Issuer"]        = "https://localhost:5001",
+                ["JwtSettings:Audience"]      = "NextTurnClient",
+                ["JwtSettings:ExpiryMinutes"] = "60"
             });
         });
 

@@ -22,7 +22,12 @@ builder.Services.AddInfrastructure(builder.Configuration);
 // ── JWT bearer authentication ─────────────────────────────────────────────────
 // Tells ASP.NET Core how to validate incoming "Authorization: Bearer {token}" headers.
 // The signing key, issuer, and audience mirror what JwtTokenService uses to generate tokens.
-var jwtSecret = builder.Configuration["JwtSettings:Secret"] ?? string.Empty;
+//
+// IMPORTANT: builder.Configuration is read inside the lambda, not captured as a local variable.
+// IOptions<JwtBearerOptions> resolves lazily (on first request), so the lambda runs AFTER
+// WebApplicationFactory.ConfigureWebHost has injected its test-environment overrides.
+// Capturing 'builder.Configuration["JwtSettings:Secret"]' eagerly (outside the lambda) would
+// snapshot the empty string from appsettings.json before the test factory adds its providers.
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -36,7 +41,8 @@ builder.Services
             ValidIssuer              = builder.Configuration["JwtSettings:Issuer"],
             ValidAudience            = builder.Configuration["JwtSettings:Audience"],
             IssuerSigningKey         = new SymmetricSecurityKey(
-                                          Encoding.UTF8.GetBytes(jwtSecret)),
+                                          Encoding.UTF8.GetBytes(
+                                              builder.Configuration["JwtSettings:Secret"] ?? string.Empty)),
             ClockSkew                = TimeSpan.Zero, // no grace period — tokens expire exactly at 'exp'
         };
     });
