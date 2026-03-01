@@ -22,6 +22,7 @@ import { RegisterPage } from './pages/Register'
 import { LoginPage } from './pages/Login'
 import { DashboardPage } from './pages/Dashboard'
 import { AccessDeniedPage } from './pages/AccessDenied'
+import { OrgRegistrationPage } from './pages/OrgRegistration'
 import { ProtectedRoute } from './components/ProtectedRoute'
 
 // ── Role-restricted stub pages ────────────────────────────────────────────────
@@ -77,6 +78,9 @@ function App() {
           </ProtectedRoute>
         }
       />
+
+      {/* Public — no tenant context required; org doesn't exist yet */}
+      <Route path="/register-org" element={<OrgRegistrationPage />} />
 
       <Route path="/access-denied" element={<AccessDeniedPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />

@@ -1,0 +1,358 @@
+/* ============================================================
+   OrgRegistrationPage — Split-screen organisation registration layout.
+   Mirrors RegisterPage.module.css design system conventions.
+   ============================================================ */
+
+/* ---- Page shell ---- */
+.page {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* ============================================================
+   LEFT: Hero / Branding panel
+   ============================================================ */
+.hero {
+  position: relative;
+  flex: 0 0 42%;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: var(--space-12) var(--space-10);
+  background: linear-gradient(
+    150deg,
+    #1a5c1e 0%,
+    #237227 40%,
+    #2b8630 75%,
+    #1e6a23 100%
+  );
+  overflow: hidden;
+}
+
+.blobTop {
+  position: absolute;
+  top: -80px;
+  right: -80px;
+  width: 320px;
+  height: 320px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 215, 134, 0.12) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.blobBottom {
+  position: absolute;
+  bottom: -100px;
+  left: -60px;
+  width: 360px;
+  height: 360px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(81, 154, 102, 0.25) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.heroContent {
+  position: relative;
+  z-index: 1;
+  max-width: 400px;
+  width: 100%;
+  padding-top: var(--space-6);
+}
+
+.logo {
+  margin-bottom: var(--space-10);
+}
+
+.logoImg {
+  height: 48px;
+  width: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.25));
+}
+
+.heroTagline {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-extrabold);
+  color: var(--color-white);
+  line-height: 1.2;
+  letter-spacing: -0.03em;
+  margin-bottom: var(--space-4);
+}
+
+.heroDesc {
+  font-size: var(--font-size-base);
+  color: rgba(255, 255, 255, 0.80);
+  line-height: 1.7;
+  margin-bottom: var(--space-8);
+}
+
+.heroFeatures {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.heroFeatures li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: rgba(255, 255, 255, 0.85);
+  font-weight: var(--font-weight-medium);
+}
+
+.heroFeatures li svg {
+  flex-shrink: 0;
+  color: #a3d9a5;
+}
+
+/* ============================================================
+   RIGHT: Scrollable form panel
+   ============================================================ */
+.formPanel {
+  flex: 1;
+  display: flex;
+  overflow-y: auto;
+}
+
+/* Inner scroll container — lets the form grow taller than the viewport */
+.formScroll {
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: var(--space-10) var(--space-8);
+  overflow-y: auto;
+}
+
+.formContainer {
+  width: 100%;
+  max-width: 520px;
+}
+
+/* ---- Header ---- */
+.formHeader {
+  margin-bottom: var(--space-8);
+}
+
+.formTitle {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-extrabold);
+  color: var(--color-text-primary);
+  letter-spacing: -0.02em;
+  margin-bottom: var(--space-2);
+}
+
+.formSubtitle {
+  font-size: var(--font-size-base);
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+}
+
+/* ---- Server error banner ---- */
+.serverError {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background-color: var(--color-error-bg);
+  border: 1px solid var(--color-error-border);
+  border-left: 4px solid var(--color-error);
+  border-radius: var(--radius-md);
+  color: var(--color-error);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  margin-bottom: var(--space-6);
+  line-height: 1.5;
+  animation: slideDown 250ms ease;
+}
+
+/* ---- Form ---- */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+/* ---- Fieldset grouping ---- */
+.fieldset {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.fieldsetLegend {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0 var(--space-2);
+}
+
+.fieldsetHint {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+/* ---- Two-column row for city + postal code ---- */
+.row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+}
+
+/* ---- Select ---- */
+.select {
+  width: 100%;
+  height: 2.75rem;
+  padding: 0 var(--space-3);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-base);
+  color: var(--color-text-primary);
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='M4 6l4 4 4-4' stroke='%236b7280' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right var(--space-3) center;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  cursor: pointer;
+}
+
+.select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(35, 114, 39, 0.12);
+}
+
+.selectError {
+  border-color: var(--color-error);
+}
+
+.selectError:focus {
+  box-shadow: 0 0 0 3px rgba(var(--color-error-rgb, 220, 38, 38), 0.12);
+}
+
+/* ---- Actions ---- */
+.actions {
+  padding-top: var(--space-2);
+}
+
+/* ---- Footer ---- */
+.formFooter {
+  margin-top: var(--space-6);
+  text-align: center;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.link {
+  color: var(--color-primary);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+.link:hover {
+  color: var(--color-primary-light);
+  text-decoration: underline;
+}
+
+/* ============================================================
+   Success state
+   ============================================================ */
+.successCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: var(--space-12) var(--space-8);
+  animation: fadeIn 400ms ease;
+}
+
+.successIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 4.5rem;
+  height: 4.5rem;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #237227, #519a66);
+  color: var(--color-white);
+  margin-bottom: var(--space-6);
+  box-shadow: 0 8px 24px rgba(35, 114, 39, 0.30);
+}
+
+.successTitle {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-extrabold);
+  color: var(--color-primary);
+  letter-spacing: -0.02em;
+  margin-bottom: var(--space-4);
+}
+
+.successBody {
+  font-size: var(--font-size-base);
+  color: var(--color-text-secondary);
+  line-height: 1.75;
+  max-width: 380px;
+  margin-bottom: var(--space-8);
+}
+
+.successLink {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--color-primary);
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-base);
+  text-decoration: none;
+  transition: color var(--transition-fast), gap var(--transition-fast);
+}
+
+.successLink:hover {
+  color: var(--color-primary-light);
+  gap: var(--space-2);
+}
+
+/* ============================================================
+   Animations
+   ============================================================ */
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ============================================================
+   Responsive — collapse hero panel on small screens
+   ============================================================ */
+@media (max-width: 768px) {
+  .hero {
+    display: none;
+  }
+
+  .formPanel {
+    padding: var(--space-6) var(--space-4);
+  }
+
+  .formScroll {
+    padding: var(--space-6) var(--space-4);
+  }
+
+  .row {
+    grid-template-columns: 1fr;
+  }
+}

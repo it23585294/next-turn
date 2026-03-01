@@ -50,6 +50,12 @@ function Navbar() {
 
         <div className={styles.navActions}>
           <Link
+            to="/register-org"
+            className={styles.navLink}
+          >
+            Register Organisation
+          </Link>
+          <Link
             to={`/login/${DEMO_TENANT}`}
             className={styles.btnOutline}
             style={{ marginRight: 'var(--space-2)' }}
@@ -278,6 +284,12 @@ function CtaSection() {
             Get Started — It's Free
             <ArrowRightIcon />
           </Link>
+          <p style={{ marginTop: 'var(--space-4)', fontSize: 'var(--font-size-sm)', color: 'rgba(255,255,255,0.7)' }}>
+            Want to offer services on NextTurn?{' '}
+            <Link to="/register-org" style={{ color: 'rgba(255,255,255,0.9)', fontWeight: 600, textDecoration: 'underline' }}>
+              Register your organisation →
+            </Link>
+          </p>
         </div>
       </div>
     </section>
