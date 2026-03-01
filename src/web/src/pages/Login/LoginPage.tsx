@@ -17,7 +17,7 @@
  */
 import { useForm, type SubmitHandler } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { useState } from 'react'
 
 import { loginSchema } from '../../schemas/loginSchema'
@@ -34,12 +34,21 @@ import { Button } from '../../components/ui/Button'
 import logoImg from '../../assets/nextTurn-logo.png'
 import styles from './LoginPage.module.css'
 
-type BannerKind = 'error' | 'lockout' | 'ratelimit'
+type BannerKind = 'error' | 'lockout' | 'ratelimit' | 'session'
 
 export function LoginPage() {
   const { tenantId } = useParams<{ tenantId: string }>()
   const navigate = useNavigate()
-  const [banner, setBanner] = useState<{ kind: BannerKind; message: string } | null>(null)
+  const [searchParams] = useSearchParams()
+
+  // Show a soft info banner when the user was redirected here because their
+  // session expired (401 interceptor in client.ts sets ?reason=session_expired).
+  const sessionExpired = searchParams.get('reason') === 'session_expired'
+  const [banner, setBanner] = useState<{ kind: BannerKind; message: string } | null>(
+    sessionExpired
+      ? { kind: 'session', message: 'Your session has expired. Please sign in again.' }
+      : null
+  )
 
   const {
     register,
@@ -121,12 +130,13 @@ export function LoginPage() {
             </p>
           </div>
 
-          {/* Banner — error / lockout / rate-limit */}
+          {/* Banner — error / lockout / rate-limit / session-expired */}
           {banner && (
             <div
               className={
                 banner.kind === 'lockout'   ? styles.bannerLockout
                 : banner.kind === 'ratelimit' ? styles.bannerRateLimit
+                : banner.kind === 'session'   ? styles.bannerSession
                 : styles.bannerError
               }
               role="alert"
@@ -135,7 +145,9 @@ export function LoginPage() {
                 ? <LockIcon />
                 : banner.kind === 'ratelimit'
                   ? <ClockIcon />
-                  : <ErrorIcon />}
+                  : banner.kind === 'session'
+                    ? <InfoIcon />
+                    : <ErrorIcon />}
               <span>{banner.message}</span>
             </div>
           )}
@@ -305,6 +317,18 @@ function LockIcon() {
       style={{ flexShrink: 0 }}>
       <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
       <path d="M7 11V7a5 5 0 0110 0v4"/>
+    </svg>
+  )
+}
+
+function InfoIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+      style={{ flexShrink: 0 }}>
+      <circle cx="12" cy="12" r="10"/>
+      <line x1="12" y1="16" x2="12" y2="12"/>
+      <line x1="12" y1="8" x2="12.01" y2="8"/>
     </svg>
   )
 }
