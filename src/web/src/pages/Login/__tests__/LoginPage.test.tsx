@@ -301,3 +301,32 @@ describe('LoginPage — loading state', () => {
     })
   })
 })
+
+// ---------------------------------------------------------------------------
+// 15: Session-expired banner (NT-12-7)
+// ---------------------------------------------------------------------------
+describe('LoginPage — session expired banner', () => {
+  it('shows a session-expired info banner when redirected with ?reason=session_expired', () => {
+    render(
+      <MemoryRouter initialEntries={[`/login/${TENANT_ID}?reason=session_expired`]}>
+        <Routes>
+          <Route path="/login/:tenantId" element={<LoginPage />} />
+        </Routes>
+      </MemoryRouter>
+    )
+    // The banner should be present immediately (no user interaction needed)
+    expect(screen.getByRole('alert')).toBeInTheDocument()
+    expect(screen.getByText(/your session has expired/i)).toBeInTheDocument()
+  })
+
+  it('does NOT show the session-expired banner when no reason param is present', () => {
+    render(
+      <MemoryRouter initialEntries={[`/login/${TENANT_ID}`]}>
+        <Routes>
+          <Route path="/login/:tenantId" element={<LoginPage />} />
+        </Routes>
+      </MemoryRouter>
+    )
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+})
