@@ -4,14 +4,16 @@
  * Routes:
  *  /                    → WelcomePage (landing)
  *  /register/:tenantId  → RegisterPage
- *  /login/:tenantId     → LoginPage       (NT-11-10)
- *  /dashboard/:tenantId → DashboardPage   (NT-11-11 — protected, placeholder until NT-11-11)
+ *  /login/:tenantId     → LoginPage       (NT-59)
+ *  /dashboard/:tenantId → ProtectedRoute → DashboardPage  (NT-60)
  *  *                    → redirect to /
  */
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { WelcomePage } from './pages/Welcome'
 import { RegisterPage } from './pages/Register'
 import { LoginPage } from './pages/Login'
+import { DashboardPage } from './pages/Dashboard'
+import { ProtectedRoute } from './components/ProtectedRoute'
 
 function App() {
   return (
@@ -19,8 +21,14 @@ function App() {
       <Route path="/" element={<WelcomePage />} />
       <Route path="/register/:tenantId" element={<RegisterPage />} />
       <Route path="/login/:tenantId" element={<LoginPage />} />
-      {/* /dashboard — stub for NT-11-11; replaced with ProtectedRoute + DashboardPage */}
-      <Route path="/dashboard/:tenantId" element={<Navigate to="/" replace />} />
+      <Route
+        path="/dashboard/:tenantId"
+        element={
+          <ProtectedRoute>
+            <DashboardPage />
+          </ProtectedRoute>
+        }
+      />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
