@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using NextTurn.Application.Common.Interfaces;
 using NextTurn.Domain.Auth.Entities;
 using NextTurn.Infrastructure.Persistence.Configurations.Auth;
+using OrganisationEntity = NextTurn.Domain.Organisation.Entities.Organisation;
 
 namespace NextTurn.Infrastructure.Persistence;
 
@@ -28,8 +29,7 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
 
     // ── DbSets (one per aggregate root) ──────────────────────────────────────
 
-    public DbSet<User> Users => Set<User>();
-
+    public DbSet<User> Users => Set<User>();    public DbSet<OrganisationEntity> Organisations => Set<OrganisationEntity>();
     // ── Model configuration ───────────────────────────────────────────────────
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

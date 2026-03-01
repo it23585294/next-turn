@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using NextTurn.Domain.Auth.Entities;
+using OrganisationEntity = NextTurn.Domain.Organisation.Entities.Organisation;
 
 namespace NextTurn.Application.Common.Interfaces;
 
@@ -11,6 +12,7 @@ namespace NextTurn.Application.Common.Interfaces;
 public interface IApplicationDbContext
 {
     DbSet<User> Users { get; }
+    DbSet<OrganisationEntity> Organisations { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken);
 }
