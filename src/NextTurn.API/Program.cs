@@ -4,15 +4,20 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
 using NextTurn.API.Middleware;
+using NextTurn.API.OpenApi;
 using NextTurn.Application;
 using NextTurn.Infrastructure;
+using Scalar.AspNetCore;
 using System.Threading.RateLimiting;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
 // ── Register services ─────────────────────────────────────────────────────────
 builder.Services.AddControllers();
-builder.Services.AddOpenApi();
+builder.Services.AddOpenApi(options =>
+{
+    options.AddDocumentTransformer<BearerSecuritySchemeTransformer>();
+});
 
 // MediatR handlers, FluentValidation validators, ValidationBehavior pipeline.
 builder.Services.AddApplication();
@@ -109,7 +114,17 @@ WebApplication app = builder.Build();
 // ── Middleware pipeline ───────────────────────────────────────────────────────
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
+    // Raw OpenAPI JSON spec: /openapi/v1.json
+    // AllowAnonymous: the global FallbackPolicy would otherwise block these dev-only routes.
+    app.MapOpenApi().AllowAnonymous();
+
+    // Scalar interactive UI: /scalar/v1
+    // Reads the spec from /openapi/v1.json automatically.
+    app.MapScalarApiReference(options =>
+    {
+        options.Title            = "NextTurn API";
+        options.DefaultHttpClient = new(ScalarTarget.Http, ScalarClient.HttpClient);
+    }).AllowAnonymous();
 }
 
 app.UseHttpsRedirection();
