@@ -25,8 +25,71 @@ jobs:
       - name: Build
         run: dotnet build NextTurn.slnx --configuration Release --no-restore
 
-      - name: Unit Tests
-        run: dotnet test ./tests/NextTurn.UnitTests/NextTurn.UnitTests.csproj --configuration Release --no-build
+      # ── Unit tests with coverlet XPlat coverage ───────────────────────────
+      # Coverage is scoped to Domain + Application only (see coverlet.runsettings).
+      # Infrastructure and API are covered by the integration test suite.
+      - name: Run unit tests with coverage
+        run: |
+          dotnet test tests/NextTurn.UnitTests/NextTurn.UnitTests.csproj \
+            --configuration Release \
+            --no-build \
+            --settings tests/NextTurn.UnitTests/coverlet.runsettings \
+            --collect:"XPlat Code Coverage" \
+            --results-directory ./coverage \
+            --logger "trx;LogFileName=unit-tests.trx"
 
+      # ── Report generation ─────────────────────────────────────────────────
+      - name: Install ReportGenerator
+        run: dotnet tool install --global dotnet-reportgenerator-globaltool
+
+      - name: Generate coverage report
+        run: |
+          reportgenerator \
+            -reports:"./coverage/**/coverage.cobertura.xml" \
+            -targetdir:"./coverage/report" \
+            -reporttypes:"Html;Cobertura;Badges;MarkdownSummaryGithub"
+
+      - name: Write coverage summary to job summary
+        if: always()
+        run: cat ./coverage/report/SummaryGithub.md >> $GITHUB_STEP_SUMMARY
+
+      # ── Artifact upload (always — visible even when gate fails) ───────────
+      - name: Upload coverage report artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: ./coverage/report
+
+      # ── Quality gate: ≥ 80% line coverage AND ≥ 80% branch coverage ──────
+      - name: Enforce coverage threshold (>=80% line & branch)
+        run: |
+          python3 - <<'EOF'
+          import xml.etree.ElementTree as ET, sys
+
+          tree = ET.parse("./coverage/report/Cobertura.xml")
+          root = tree.getroot()
+
+          line   = float(root.attrib["line-rate"])   * 100
+          branch = float(root.attrib["branch-rate"]) * 100
+
+          print(f"Line coverage:   {line:.1f}%")
+          print(f"Branch coverage: {branch:.1f}%")
+
+          failures = []
+          if line < 80:
+              failures.append(f"Line coverage {line:.1f}% is below the 80% minimum")
+          if branch < 80:
+              failures.append(f"Branch coverage {branch:.1f}% is below the 80% minimum")
+
+          if failures:
+              for msg in failures:
+                  print(f"::error::{msg}")
+              sys.exit(1)
+
+          print("Coverage threshold met")
+          EOF
+
+      # ── Integration tests (no coverage gate — separate story) ─────────────
       - name: Integration Tests
         run: dotnet test ./tests/NextTurn.IntegrationTests/NextTurn.IntegrationTests.csproj --configuration Release --no-build
