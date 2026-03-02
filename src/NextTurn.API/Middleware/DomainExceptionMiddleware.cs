@@ -36,6 +36,35 @@ public sealed class DomainExceptionMiddleware
         {
             await _next(context);
         }
+        catch (QueueFullDomainException ex)
+        {
+            // Distinct 409 with a machine-readable body — the frontend uses
+            // canBookAppointment to decide whether to show an appointment fallback CTA.
+            _logger.LogInformation(
+                "Queue full at {Method} {Path}: {Message}",
+                context.Request.Method,
+                context.Request.Path,
+                ex.Message);
+
+            context.Response.StatusCode  = StatusCodes.Status409Conflict;
+            context.Response.ContentType = "application/problem+json";
+
+            var problem = new
+            {
+                type               = "https://tools.ietf.org/html/rfc9110#section-15.5.9",
+                title              = "Queue Full",
+                status             = StatusCodes.Status409Conflict,
+                detail             = ex.Message,
+                instance           = context.Request.Path.ToString(),
+                canBookAppointment = true
+            };
+
+            await context.Response.WriteAsync(
+                JsonSerializer.Serialize(problem, new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                }));
+        }
         catch (DomainException ex)
         {
             // ConflictDomainException (subclass) → 409 Conflict
