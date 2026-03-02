@@ -2,7 +2,10 @@ using System.Security.Claims;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using NextTurn.API.Models.Queues;
+using NextTurn.Application.Queue.Commands.CreateQueue;
 using NextTurn.Application.Queue.Commands.JoinQueue;
+using NextTurn.Application.Queue.Queries.GetQueueStatus;
 
 namespace NextTurn.API.Controllers;
 
@@ -75,6 +78,100 @@ public sealed class QueuesController : ControllerBase
 
         var command = new JoinQueueCommand(queueId, userId);
         var result  = await _sender.Send(command, cancellationToken);
+
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Create a new queue for the authenticated org admin's organisation.
+    /// </summary>
+    /// <remarks>
+    /// Requires a valid JWT with role OrgAdmin or SystemAdmin.
+    /// OrganisationId is read from the JWT <c>tid</c> claim — admins can only
+    /// create queues for their own organisation.
+    ///
+    /// Success response (201 Created):
+    /// <code>
+    /// {
+    ///   "queueId": "3fa85f64-...",
+    ///   "shareableLink": "/queues/{tenantId}/{queueId}"
+    /// }
+    /// </code>
+    ///
+    /// Error responses:
+    ///   400 — organisation not found
+    ///   401 — missing or invalid JWT
+    ///   403 — JWT role is not OrgAdmin or SystemAdmin
+    ///   422 — validation failed (name empty, capacity &lt; 1, avgTime &lt; 1)
+    /// </remarks>
+    [HttpPost]
+    [Authorize(Roles = "OrgAdmin,SystemAdmin")]
+    [ProducesResponseType(typeof(CreateQueueResult), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> CreateQueue(
+        [FromBody] CreateQueueRequest request,
+        CancellationToken cancellationToken)
+    {
+        // OrganisationId == TenantId in NextTurn's single-org-per-tenant model.
+        // The tid claim is set by JwtTokenService when the org admin logs in.
+        var tenantIdClaim = User.FindFirstValue("tid");
+
+        if (!Guid.TryParse(tenantIdClaim, out var organisationId))
+            return Unauthorized();
+
+        var command = new CreateQueueCommand(
+            OrganisationId:            organisationId,
+            Name:                      request.Name,
+            MaxCapacity:               request.MaxCapacity,
+            AverageServiceTimeSeconds: request.AverageServiceTimeSeconds);
+
+        var result = await _sender.Send(command, cancellationToken);
+
+        return CreatedAtAction(nameof(GetQueueStatus), new { queueId = result.QueueId }, result);
+    }
+
+    /// <summary>
+    /// Get the authenticated user's current position and ETA in a queue.
+    /// Called by the frontend polling loop every 30 seconds after joining.
+    /// </summary>
+    /// <remarks>
+    /// Requires a valid JWT (any role).
+    ///
+    /// Success response:
+    /// <code>
+    /// {
+    ///   "ticketNumber": 42,
+    ///   "positionInQueue": 2,
+    ///   "estimatedWaitSeconds": 120,
+    ///   "queueStatus": "Active"
+    /// }
+    /// </code>
+    ///
+    /// Error responses:
+    ///   400 — queue not found, or user has no active entry in this queue
+    ///   401 — missing or invalid JWT
+    ///   422 — malformed queueId GUID
+    /// </remarks>
+    [HttpGet("{queueId:guid}/status")]
+    [ProducesResponseType(typeof(GetQueueStatusResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> GetQueueStatus(
+        Guid queueId,
+        CancellationToken cancellationToken)
+    {
+        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier)
+                       ?? User.FindFirstValue("sub");
+
+        if (!Guid.TryParse(userIdClaim, out var userId))
+            return Unauthorized();
+
+        var query  = new GetQueueStatusQuery(queueId, userId);
+        var result = await _sender.Send(query, cancellationToken);
 
         return Ok(result);
     }
