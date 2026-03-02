@@ -69,4 +69,13 @@ public interface IQueueRepository
     /// Used by <c>GetQueueStatusQueryHandler</c> to retrieve the user's current ticket.
     /// </summary>
     Task<QueueEntry?> GetUserActiveEntryAsync(Guid queueId, Guid userId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Returns the user's 1-based position in the queue.
+    /// Computed as the count of active entries (<see cref="QueueEntryStatus.Waiting"/> or
+    /// <see cref="QueueEntryStatus.Serving"/>) with a ticket number less than or equal to
+    /// <paramref name="ticketNumber"/>.
+    /// This correctly reflects real position even when entries ahead have been served.
+    /// </summary>
+    Task<int> GetUserPositionAsync(Guid queueId, int ticketNumber, CancellationToken cancellationToken);
 }
