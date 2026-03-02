@@ -4,6 +4,7 @@ using Microsoft.Extensions.Configuration;
 using NextTurn.Application.Common.Interfaces;
 using NextTurn.Domain.Auth.Repositories;
 using NextTurn.Domain.Organisation.Repositories;
+using NextTurn.Domain.Queue.Repositories;
 using NextTurn.Infrastructure.Auth;
 using NextTurn.Infrastructure.BusinessRegistry;
 using NextTurn.Infrastructure.Email;
@@ -55,6 +56,7 @@ public static class DependencyInjection
         // Scoped lifetime matches DbContext — one instance per HTTP request.
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IOrganisationRepository, OrganisationRepository>();
+        services.AddScoped<IQueueRepository, QueueRepository>();
 
         // ── Security ──────────────────────────────────────────────────────────
         // Singleton is safe — BcryptPasswordHasher holds no state.
