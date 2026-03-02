@@ -13,7 +13,14 @@ using System.Threading.RateLimiting;
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
 // ── Register services ─────────────────────────────────────────────────────────
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        // Serialize enum values as their string names (e.g. "Active" not 0).
+        // Required for the frontend to receive intelligible values like QueueStatus.
+        options.JsonSerializerOptions.Converters.Add(
+            new System.Text.Json.Serialization.JsonStringEnumConverter());
+    });
 builder.Services.AddOpenApi(options =>
 {
     options.AddDocumentTransformer<BearerSecuritySchemeTransformer>();
@@ -55,6 +62,10 @@ builder.Services
                                           Encoding.UTF8.GetBytes(
                                               builder.Configuration["JwtSettings:Secret"] ?? string.Empty)),
             ClockSkew                = TimeSpan.Zero, // no grace period — tokens expire exactly at 'exp'
+            // Map the short "role" claim to the identity's RoleClaimType so that
+            // [Authorize(Roles = "OrgAdmin,...")] and ClaimsPrincipal.IsInRole() work
+            // correctly even though MapInboundClaims = false preserves the short name.
+            RoleClaimType            = "role",
         };
     });
 
