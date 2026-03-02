@@ -83,4 +83,46 @@ public sealed class QueueRepository : IQueueRepository
                      (e.Status == QueueEntryStatus.Waiting || e.Status == QueueEntryStatus.Serving),
                 cancellationToken);
     }
+
+    /// <inheritdoc/>
+    public async Task<IReadOnlyList<QueueEntity>> GetByOrganisationIdAsync(
+        Guid organisationId,
+        CancellationToken cancellationToken)
+    {
+        return await _context.Queues
+            .Where(q => q.OrganisationId == organisationId)
+            .OrderBy(q => q.CreatedAt)
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task<QueueEntry?> GetUserActiveEntryAsync(
+        Guid queueId,
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        return await _context.QueueEntries
+            .FirstOrDefaultAsync(
+                e => e.QueueId == queueId &&
+                     e.UserId   == userId  &&
+                     (e.Status == QueueEntryStatus.Waiting || e.Status == QueueEntryStatus.Serving),
+                cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task<int> GetUserPositionAsync(
+        Guid queueId,
+        int  ticketNumber,
+        CancellationToken cancellationToken)
+    {
+        // Count active entries (Waiting or Serving) with a ticket number <= the user's ticket.
+        // This correctly reflects real position as entries ahead are served and removed from
+        // the active set — unlike a simple activeCount + 1 captured at join time.
+        return await _context.QueueEntries
+            .CountAsync(
+                e => e.QueueId      == queueId &&
+                     e.TicketNumber <= ticketNumber &&
+                     (e.Status == QueueEntryStatus.Waiting || e.Status == QueueEntryStatus.Serving),
+                cancellationToken);
+    }
 }
