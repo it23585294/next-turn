@@ -25,12 +25,12 @@ import { AccessDeniedPage } from './pages/AccessDenied'
 import { OrgRegistrationPage } from './pages/OrgRegistration'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { QueuePage } from './pages/Queue'
+import { AdminDashboardPage } from './pages/Admin'
 
 // ── Role-restricted stub pages ────────────────────────────────────────────────
 // Temporary placeholders so the route guards have real targets during NT-12
 // testing and the sprint demo. Replace with real feature pages in Sprint 2+.
 const StaffStub     = () => <main style={{ padding: '2rem' }}><h1>Staff Area — Sprint 2</h1></main>
-const OrgAdminStub  = () => <main style={{ padding: '2rem' }}><h1>Admin Area — Sprint 2</h1></main>
 const SystemAdminStub = () => <main style={{ padding: '2rem' }}><h1>System Area — Sprint 2</h1></main>
 
 function App() {
@@ -65,7 +65,7 @@ function App() {
         path="/admin/:tenantId"
         element={
           <ProtectedRoute allowedRoles={['OrgAdmin', 'SystemAdmin']}>
-            <OrgAdminStub />
+            <AdminDashboardPage />
           </ProtectedRoute>
         }
       />

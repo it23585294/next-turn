@@ -11,16 +11,16 @@
  *  full       — 409 with canBookAppointment: queue is at capacity
  *  error      — any other error
  */
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
-import { joinQueue, type JoinQueueResult } from '../../api/queues'
+import { joinQueue, getQueueStatus, type QueueStatusResult } from '../../api/queues'
 import type { ApiError } from '../../types/api'
 import styles from './QueuePage.module.css'
 
 type PageState =
   | { status: 'idle' }
   | { status: 'joining' }
-  | { status: 'joined'; result: JoinQueueResult }
+  | { status: 'joined'; data: QueueStatusResult }
   | { status: 'alreadyIn' }
   | { status: 'full' }
   | { status: 'error'; detail: string }
@@ -35,13 +35,40 @@ export function QueuePage() {
   const { tenantId, queueId } = useParams<{ tenantId: string; queueId: string }>()
   const [state, setState] = useState<PageState>({ status: 'idle' })
 
+  // ── 30-second polling when joined ────────────────────────────────────────
+  useEffect(() => {
+    if (state.status !== 'joined' || !tenantId || !queueId) return
+
+    const id = setInterval(async () => {
+      try {
+        const fresh = await getQueueStatus(queueId, tenantId)
+        setState(prev =>
+          prev.status === 'joined'
+            ? { ...prev, data: fresh }
+            : prev
+        )
+      } catch {
+        // Silently ignore poll errors — stale data is better than crashing.
+        // If the entry expires on the server, the next successful poll will return 400
+        // and the user will see no change until they manually refresh.
+      }
+    }, 30_000)
+
+    return () => clearInterval(id)
+  }, [state.status, tenantId, queueId])
+
   async function handleJoin() {
     if (!tenantId || !queueId) return
     setState({ status: 'joining' })
 
     try {
       const result = await joinQueue(queueId, tenantId)
-      setState({ status: 'joined', result })
+      // Seed the joined state with join result + default Active status.
+      // Subsequent polls via getQueueStatus will update all fields including queueStatus.
+      setState({
+        status: 'joined',
+        data: { ...result, queueStatus: 'Active' },
+      })
     } catch (err) {
       const apiErr = err as ApiError
       if (apiErr.status === 409) {
@@ -84,22 +111,44 @@ export function QueuePage() {
         {/* ── Joined (success) ── */}
         {state.status === 'joined' && (
           <div className={styles.successBlock} data-testid="success-block">
+            {/* Queue status banners */}
+            {state.data.queueStatus === 'Paused' && (
+              <div className={styles.pausedBanner} role="alert" data-testid="paused-banner">
+                ⏸ This queue is currently paused. Your position is held.
+              </div>
+            )}
+            {state.data.queueStatus === 'Closed' && (
+              <div className={styles.closedBanner} role="alert" data-testid="closed-banner">
+                This queue has closed. Please contact the organisation.
+              </div>
+            )}
+
+            {/* You're next highlight */}
+            {state.data.positionInQueue === 1 && state.data.queueStatus === 'Active' && (
+              <div className={styles.youreNext} role="status" data-testid="youre-next-banner">
+                🎉 You&apos;re next! Please proceed to the counter.
+              </div>
+            )}
+
             <div className={styles.ticketBadge}>
               <span className={styles.ticketLabel}>Your ticket</span>
-              <span className={styles.ticketNumber}>#{state.result.ticketNumber}</span>
+              <span className={styles.ticketNumber}>#{state.data.ticketNumber}</span>
             </div>
             <dl className={styles.statsList}>
               <div className={styles.stat}>
                 <dt>Position in queue</dt>
-                <dd>{state.result.positionInQueue}</dd>
+                <dd>{state.data.positionInQueue}</dd>
               </div>
               <div className={styles.stat}>
                 <dt>Estimated wait</dt>
-                <dd>{formatEta(state.result.estimatedWaitSeconds)}</dd>
+                <dd>{formatEta(state.data.estimatedWaitSeconds)}</dd>
               </div>
             </dl>
             <p className={styles.successNote}>
               Please stay nearby. You&apos;ll be called when it&apos;s your turn.
+            </p>
+            <p className={styles.pollingNote} aria-live="polite">
+              Position updates every 30 seconds.
             </p>
           </div>
         )}

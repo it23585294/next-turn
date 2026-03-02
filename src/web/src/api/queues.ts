@@ -1,7 +1,5 @@
 /**
  * Queue API calls.
- * POST /api/queues/{queueId}/join requires a valid JWT (Authorization: Bearer {token})
- * and an X-Tenant-Id header.
  */
 import { apiClient, parseApiError } from './client'
 import { getToken } from '../utils/authToken'
@@ -11,6 +9,36 @@ export interface JoinQueueResult {
   ticketNumber: number
   positionInQueue: number
   estimatedWaitSeconds: number
+}
+
+/** Shape returned by GET /api/queues/{queueId}/status on HTTP 200. */
+export interface QueueStatusResult {
+  ticketNumber: number
+  positionInQueue: number
+  estimatedWaitSeconds: number
+  queueStatus: 'Active' | 'Paused' | 'Closed'
+}
+
+/** Shape returned by POST /api/queues on HTTP 201. */
+export interface CreateQueueResult {
+  queueId: string
+  shareableLink: string
+}
+
+/** Shape returned by GET /api/queues (org admin list). */
+export interface OrgQueueSummary {
+  queueId: string
+  name: string
+  maxCapacity: number
+  averageServiceTimeSeconds: number
+  status: string
+  shareableLink: string
+}
+
+export interface CreateQueueBody {
+  name: string
+  maxCapacity: number
+  averageServiceTimeSeconds: number
 }
 
 /**
@@ -35,6 +63,101 @@ export async function joinQueue(
     const { data } = await apiClient.post<JoinQueueResult>(
       `/queues/${queueId}/join`,
       null,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'X-Tenant-Id': tenantId,
+        },
+      }
+    )
+    return data
+  } catch (err) {
+    throw parseApiError(err)
+  }
+}
+
+/**
+ * GET /api/queues/{queueId}/status
+ *
+ * Returns the authenticated user's current position and ETA.
+ * Called by the frontend polling loop every 30 seconds after joining.
+ *
+ * @throws ApiError on:
+ *   400 — queue not found, or user has no active entry
+ *   401 — missing or invalid JWT
+ */
+export async function getQueueStatus(
+  queueId: string,
+  tenantId: string,
+): Promise<QueueStatusResult> {
+  try {
+    const token = getToken()
+    const { data } = await apiClient.get<QueueStatusResult>(
+      `/queues/${queueId}/status`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'X-Tenant-Id': tenantId,
+        },
+      }
+    )
+    return data
+  } catch (err) {
+    throw parseApiError(err)
+  }
+}
+
+/**
+ * POST /api/queues
+ *
+ * Creates a new queue for the authenticated org admin's organisation.
+ * OrganisationId is taken from the JWT tid claim server-side.
+ *
+ * @throws ApiError on:
+ *   400 — organisation not found
+ *   401 — missing or invalid JWT
+ *   403 — role is not OrgAdmin or SystemAdmin
+ *   422 — validation failed (name empty, capacity < 1, avgTime < 1)
+ */
+export async function createQueue(
+  tenantId: string,
+  body: CreateQueueBody,
+): Promise<CreateQueueResult> {
+  try {
+    const token = getToken()
+    const { data } = await apiClient.post<CreateQueueResult>(
+      `/queues`,
+      body,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'X-Tenant-Id': tenantId,
+        },
+      }
+    )
+    return data
+  } catch (err) {
+    throw parseApiError(err)
+  }
+}
+
+/**
+ * GET /api/queues
+ *
+ * Lists all queues for the authenticated org admin's organisation.
+ * Used by the admin dashboard on page load.
+ *
+ * @throws ApiError on:
+ *   401 — missing or invalid JWT
+ *   403 — role is not OrgAdmin or SystemAdmin
+ */
+export async function getOrgQueues(
+  tenantId: string,
+): Promise<OrgQueueSummary[]> {
+  try {
+    const token = getToken()
+    const { data } = await apiClient.get<OrgQueueSummary[]>(
+      `/queues`,
       {
         headers: {
           Authorization: `Bearer ${token}`,

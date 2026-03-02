@@ -73,7 +73,8 @@ export function LoginPage() {
         password: data.password,
       })
       saveToken(result.accessToken)
-      navigate(`/dashboard/${tenantId}`, { replace: true })
+      const isAdmin = result.role === 'OrgAdmin' || result.role === 'SystemAdmin'
+      navigate(isAdmin ? `/admin/${tenantId}` : `/dashboard/${tenantId}`, { replace: true })
     } catch (err) {
       const apiErr = err as ApiError
 

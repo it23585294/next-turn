@@ -37,6 +37,7 @@ import styles from './OrgRegistrationPage.module.css'
 export function OrgRegistrationPage() {
   const [serverError, setServerError] = useState<string | null>(null)
   const [submitted, setSubmitted] = useState(false)
+  const [organisationId, setOrganisationId] = useState<string | null>(null)
 
   const {
     register,
@@ -51,7 +52,8 @@ export function OrgRegistrationPage() {
     setServerError(null)
 
     try {
-      await registerOrganisation(toOrgRegistrationPayload(data))
+      const result = await registerOrganisation(toOrgRegistrationPayload(data))
+      setOrganisationId(result.organisationId)
       setSubmitted(true)
     } catch (err) {
       const apiErr = err as ApiError
@@ -79,7 +81,7 @@ export function OrgRegistrationPage() {
       <div className={styles.page}>
         <HeroPanel />
         <div className={styles.formPanel}>
-          <SuccessCard />
+          <SuccessCard organisationId={organisationId} />
         </div>
       </div>
     )
@@ -310,7 +312,9 @@ function HeroPanel() {
   )
 }
 
-function SuccessCard() {
+function SuccessCard({ organisationId }: { organisationId: string | null }) {
+  const loginUrl = organisationId ? `/login/${organisationId}` : null
+
   return (
     <div className={styles.successCard}>
       <div className={styles.successIcon} aria-label="Success">
@@ -318,9 +322,21 @@ function SuccessCard() {
       </div>
       <h2 className={styles.successTitle}>Registration submitted!</h2>
       <p className={styles.successBody}>
-        Check your email for your admin login credentials. Your organisation
-        is pending approval and will be reviewed within 24 hours.
+        Your organisation is pending approval and will be reviewed within 24 hours.
       </p>
+      {loginUrl && (
+        <div className={styles.loginDetails}>
+          <p className={styles.loginDetailsLabel}>Your admin login link:</p>
+          <code className={styles.loginDetailsUrl}>{window.location.origin}{loginUrl}</code>
+          <p className={styles.loginDetailsNote}>
+            Your temporary password has been logged to the API console (dev mode).
+            Use it with your admin email at the link above.
+          </p>
+          <Link to={loginUrl} className={styles.loginBtn}>
+            Go to login →
+          </Link>
+        </div>
+      )}
       <Link to="/" className={styles.successLink}>
         Back to home →
       </Link>
