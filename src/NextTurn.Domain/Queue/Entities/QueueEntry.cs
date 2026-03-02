@@ -29,7 +29,7 @@ public class QueueEntry
     public DateTimeOffset    JoinedAt     { get; }
 
     // Required by EF Core for entity materialisation.
-    protected QueueEntry() { }
+    protected QueueEntry() { } // No reference-type properties — no CS8618 suppression needed.
 
     private QueueEntry(
         Guid             id,

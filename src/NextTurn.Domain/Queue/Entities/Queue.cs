@@ -34,7 +34,11 @@ public class Queue
     public DateTimeOffset CreatedAt             { get; }
 
     // Required by EF Core for entity materialisation — prevents accidental direct construction.
-    protected Queue() { }
+    protected Queue()
+    {
+        // default! suppresses CS8618 — EF Core assigns this before the instance is ever read.
+        Name = default!;
+    }
 
     private Queue(
         Guid          id,

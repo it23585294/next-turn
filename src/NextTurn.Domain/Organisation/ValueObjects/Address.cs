@@ -36,5 +36,12 @@ public record Address
 
     // Parameterless constructor required by EF Core for owned-type materialisation.
     // Protected to prevent accidental use in domain code.
-    protected Address() { }
+    protected Address()
+    {
+        // default! suppresses CS8618 — EF Core assigns these before the instance is ever read.
+        Line1      = default!;
+        City       = default!;
+        PostalCode = default!;
+        Country    = default!;
+    }
 }

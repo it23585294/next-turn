@@ -30,7 +30,13 @@ public class Organisation
     public DateTimeOffset      CreatedAt   { get; }
 
     // Required by EF Core for entity materialisation — prevents direct construction.
-    protected Organisation() { }
+    protected Organisation()
+    {
+        // default! suppresses CS8618 — EF Core assigns these before the instance is ever read.
+        Name       = default!;
+        Address    = default!;
+        AdminEmail = default!;
+    }
 
     private Organisation(
         Guid               id,

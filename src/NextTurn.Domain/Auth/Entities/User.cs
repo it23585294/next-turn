@@ -34,7 +34,13 @@ public class User {
   // EF Core cannot bind constructor parameters to owned-type navigations (like EmailAddress),
   // so it needs a parameterless constructor. Protected prevents accidental use in domain code.
   // EF Core then sets each property via its backing field / private setter after construction.
-  protected User() { }
+  protected User()
+  {
+    // default! suppresses CS8618 — EF Core assigns these before the instance is ever read.
+    Name         = default!;
+    Email        = default!;
+    PasswordHash = default!;
+  }
 
   private User(Guid id, Guid tenantId, string name, EmailAddress email, string? phone, DateTimeOffset createdAt, string passwordHash, bool isActive, UserRole role)
   {
