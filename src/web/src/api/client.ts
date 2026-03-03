@@ -16,8 +16,12 @@ import type { AxiosError } from 'axios'
 import type { ApiError, ProblemDetails } from '../types/api'
 import { clearToken, getTokenPayload } from '../utils/authToken'
 
+// In production (Vercel), VITE_API_URL is set to the full Azure API base URL
+// e.g. https://nextturn.azurewebsites.net/api
+// In development, it is undefined and falls back to '/api' which the Vite
+// dev-server proxy rewrites to http://localhost:5258/api.
 export const apiClient = axios.create({
-  baseURL: '/api',
+  baseURL: import.meta.env.VITE_API_URL ?? '/api',
   headers: {
     'Content-Type': 'application/json',
   },

@@ -18,6 +18,9 @@ coverage
 # Vite internal cache
 .vite
 
+# Vercel CLI local config (contains project/org IDs — not secrets, but no need to commit)
+.vercel
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

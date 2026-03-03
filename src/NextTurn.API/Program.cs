@@ -102,6 +102,23 @@ builder.Services.AddAuthorization(options =>
         .Build();
 });
 
+// ── CORS ─────────────────────────────────────────────────────────────────────
+// Allowed origins are read from config so they can be overridden per environment.
+// Development: http://localhost:5173 (Vite dev server)
+// Production:  set AllowedOrigins__0 in Azure App Service env vars (e.g. https://next-turn.vercel.app)
+string[] allowedOrigins = builder.Configuration
+    .GetSection("AllowedOrigins")
+    .Get<string[]>() ?? ["http://localhost:5173"];
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("Frontend", policy =>
+        policy.WithOrigins(allowedOrigins)
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials());
+});
+
 // ── Rate limiting ─────────────────────────────────────────────────────────────
 // Sliding window: max 10 requests per 60-second window per client IP.
 // Applied selectively via [EnableRateLimiting("login")] on the login endpoint only.
@@ -139,6 +156,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.UseCors("Frontend");
 
 // Exception handlers — must be early so they wrap all downstream middleware.
 // DomainException (400) wraps ValidationException (422) because domain errors
