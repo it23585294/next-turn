@@ -103,12 +103,13 @@ builder.Services.AddAuthorization(options =>
 });
 
 // ── CORS ─────────────────────────────────────────────────────────────────────
-// Allowed origins are read from config so they can be overridden per environment.
-// Development: http://localhost:5173 (Vite dev server)
-// Production:  set AllowedOrigins__0 in Azure App Service env vars (e.g. https://next-turn.vercel.app)
-string[] allowedOrigins = builder.Configuration
-    .GetSection("AllowedOrigins")
-    .Get<string[]>() ?? ["http://localhost:5173"];
+// Allowed origins are read from a single comma-separated config value.
+// Development: falls back to http://localhost:5173 (Vite dev server)
+// Production:  set AllowedOrigins in Azure App Service env vars
+//              e.g. AllowedOrigins = https://web-mauve-nine-46.vercel.app
+//              Multiple origins: https://a.vercel.app,https://b.vercel.app
+string[] allowedOrigins = (builder.Configuration["AllowedOrigins"] ?? "http://localhost:5173")
+    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
 builder.Services.AddCors(options =>
 {
