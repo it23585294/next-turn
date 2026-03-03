@@ -1,0 +1,108 @@
+using MediatR;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+using NextTurn.API.Models.Auth;
+using NextTurn.Application.Auth;
+using NextTurn.Application.Auth.Commands.LoginUser;
+using NextTurn.Application.Auth.Commands.RegisterUser;
+
+namespace NextTurn.API.Controllers;
+
+/// <summary>
+/// Handles authentication-related endpoints (register, login, etc.)
+///
+/// The controller is intentionally thin — it:
+///   1. Accepts the HTTP request and maps it to a command/query
+///   2. Sends through MediatR
+///   3. Maps the result to an HTTP response
+///
+/// All business logic lives in the Application layer handlers.
+/// </summary>
+[ApiController]
+[Route("api/auth")]
+public sealed class AuthController : ControllerBase
+{
+    private readonly ISender _sender;
+
+    public AuthController(ISender sender)
+    {
+        _sender = sender;
+    }
+
+    /// <summary>
+    /// Register a new user under the tenant identified by X-Tenant-Id header.
+    /// </summary>
+    /// <remarks>
+    /// The caller must supply an X-Tenant-Id header containing the organisation's
+    /// Guid. This is picked up by TenantMiddleware and made available to the
+    /// handler via ITenantContext.
+    ///
+    /// Returns 201 Created on success. The response body is intentionally empty —
+    /// no user data is echoed back to avoid leaking internal identifiers at this stage.
+    /// A Location header pointing to the created resource will be added in a future
+    /// story once the GET /api/users/{id} endpoint exists.
+    ///
+    /// Error responses:
+    ///   400 — domain business rule violated (e.g. email already registered)
+    ///   422 — input validation failed (e.g. missing field, weak password)
+    /// </remarks>
+    [HttpPost("register")]
+    [AllowAnonymous]
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> Register(
+        [FromBody] RegisterRequest request,
+        CancellationToken cancellationToken)
+    {
+        var command = new RegisterUserCommand(
+            request.Name,
+            request.Email,
+            request.Phone,
+            request.Password);
+
+        await _sender.Send(command, cancellationToken);
+
+        return StatusCode(StatusCodes.Status201Created);
+    }
+
+    /// <summary>
+    /// Authenticate an existing user and return a signed JWT.
+    /// </summary>
+    /// <remarks>
+    /// Expects an X-Tenant-Id header (Guid) to scope the lookup to the correct tenant.
+    ///
+    /// Rate limited to 10 requests per 60-second sliding window per client IP.
+    /// Returns HTTP 429 if the limit is exceeded.
+    ///
+    /// Error responses:
+    ///   400 — invalid credentials, account locked, or domain rule violated
+    ///   422 — input validation failure (missing or malformed field)
+    ///   429 — rate limit exceeded
+    /// </remarks>
+    [HttpPost("login")]
+    [AllowAnonymous]
+    [EnableRateLimiting("login")]
+    [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> Login(
+        [FromBody] LoginRequest request,
+        CancellationToken cancellationToken)
+    {
+        var command = new LoginUserCommand(request.Email, request.Password);
+
+        LoginResult result = await _sender.Send(command, cancellationToken);
+
+        var response = new LoginResponse(
+            result.AccessToken,
+            result.UserId,
+            result.Name,
+            result.Email,
+            result.Role);
+
+        return Ok(response);
+    }
+}

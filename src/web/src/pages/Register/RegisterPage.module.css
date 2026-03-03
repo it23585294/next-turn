@@ -1,0 +1,402 @@
+/* ============================================================
+   RegisterPage — Split-screen registration layout
+   ============================================================ */
+
+/* ---- Page shell ---- */
+.page {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* ============================================================
+   LEFT: Hero / Branding panel
+   ============================================================ */
+.hero {
+  position: relative;
+  flex: 0 0 42%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-12) var(--space-10);
+  background: linear-gradient(
+    150deg,
+    #1a5c1e 0%,
+    #237227 40%,
+    #2b8630 75%,
+    #1e6a23 100%
+  );
+  overflow: hidden;
+}
+
+/* Decorative blobs */
+.blobTop {
+  position: absolute;
+  top: -80px;
+  right: -80px;
+  width: 320px;
+  height: 320px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 215, 134, 0.12) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.blobBottom {
+  position: absolute;
+  bottom: -100px;
+  left: -60px;
+  width: 360px;
+  height: 360px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(81, 154, 102, 0.25) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.heroContent {
+  position: relative;
+  z-index: 1;
+  max-width: 400px;
+  width: 100%;
+}
+
+/* Logo */
+.logo {
+  margin-bottom: var(--space-10);
+}
+
+.logoImg {
+  height: 48px;
+  width: auto;
+  object-fit: contain;
+  /* PNG on dark bg — drop-shadow for extra pop */
+  filter: drop-shadow(0 2px 8px rgba(0,0,0,0.25));
+}
+
+/* Tagline */
+.heroTagline {
+  font-size: var(--font-size-4xl);
+  font-weight: var(--font-weight-extrabold);
+  color: var(--color-white);
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+  margin-bottom: var(--space-5);
+}
+
+.heroDesc {
+  font-size: var(--font-size-base);
+  color: rgba(255, 255, 255, 0.75);
+  line-height: 1.7;
+  margin-bottom: var(--space-10);
+}
+
+/* Feature list */
+.features {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.featureItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.featureIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--radius-md);
+  background: rgba(255, 215, 134, 0.15);
+  color: var(--color-accent-light);
+  flex-shrink: 0;
+  transition: background-color var(--transition-fast);
+}
+
+/* ============================================================
+   RIGHT: Form panel
+   ============================================================ */
+.formPanel {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-12) var(--space-8);
+  background-color: var(--color-white);
+  overflow-y: auto;
+}
+
+.formContainer {
+  width: 100%;
+  max-width: 440px;
+}
+
+/* Form header */
+.formHeader {
+  margin-bottom: var(--space-8);
+}
+
+.formTitle {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-extrabold);
+  color: var(--color-primary);
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+  margin-bottom: var(--space-2);
+}
+
+.formSubtitle {
+  font-size: var(--font-size-base);
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+}
+
+/* Server error banner */
+.serverError {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background-color: var(--color-error-bg);
+  border: 1px solid var(--color-error-border);
+  border-left: 4px solid var(--color-error);
+  border-radius: var(--radius-md);
+  color: var(--color-error);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  margin-bottom: var(--space-6);
+  line-height: 1.5;
+  animation: slideDown 250ms ease;
+}
+
+/* Form fields */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+/* Actions (submit button) */
+.actions {
+  padding-top: var(--space-2);
+}
+
+/* Footer links */
+.formFooter {
+  margin-top: var(--space-6);
+  text-align: center;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.link {
+  color: var(--color-primary);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+.link:hover {
+  color: var(--color-primary-light);
+  text-decoration: underline;
+}
+
+.legal {
+  margin-top: var(--space-4);
+  text-align: center;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  line-height: 1.7;
+}
+
+/* ============================================================
+   Success state
+   ============================================================ */
+.successCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: var(--space-12) var(--space-8);
+  animation: fadeIn 400ms ease;
+}
+
+.successIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 4.5rem;
+  height: 4.5rem;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #237227, #519A66);
+  color: var(--color-white);
+  margin-bottom: var(--space-6);
+  box-shadow: 0 8px 24px rgba(35, 114, 39, 0.30);
+}
+
+.successTitle {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-extrabold);
+  color: var(--color-primary);
+  letter-spacing: -0.02em;
+  margin-bottom: var(--space-4);
+}
+
+.successBody {
+  font-size: var(--font-size-base);
+  color: var(--color-text-secondary);
+  line-height: 1.75;
+  max-width: 340px;
+  margin-bottom: var(--space-8);
+}
+
+.successLink {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-8);
+  background-color: var(--color-accent);
+  color: var(--color-accent-text);
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-base);
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  transition: background-color var(--transition-fast), box-shadow var(--transition-fast),
+    transform var(--transition-fast);
+  box-shadow: 0 2px 8px rgba(255, 170, 0, 0.30);
+}
+
+.successLink:hover {
+  background-color: var(--color-accent-hover);
+  box-shadow: 0 4px 16px rgba(255, 170, 0, 0.40);
+  transform: translateY(-1px);
+  text-decoration: none;
+}
+
+/* ============================================================
+   Error state (invalid link)
+   ============================================================ */
+.errorCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: var(--space-12) var(--space-8);
+}
+
+.errorCardIcon {
+  font-size: 3rem;
+  margin-bottom: var(--space-5);
+}
+
+.errorCardTitle {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-3);
+}
+
+.errorCardBody {
+  font-size: var(--font-size-base);
+  color: var(--color-text-secondary);
+  line-height: 1.7;
+  max-width: 340px;
+}
+
+/* ============================================================
+   Animations
+   ============================================================ */
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ============================================================
+   Responsive — tablet (≤ 900px)
+   ============================================================ */
+@media (max-width: 900px) {
+  .page {
+    flex-direction: column;
+  }
+
+  .hero {
+    flex: none;
+    padding: var(--space-8) var(--space-6);
+    min-height: auto;
+  }
+
+  .heroTagline {
+    font-size: var(--font-size-3xl);
+  }
+
+  .heroDesc,
+  .features {
+    display: none; /* Keep header hero compact on tablet */
+  }
+
+  .heroContent {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    max-width: 100%;
+  }
+
+  .logo {
+    margin-bottom: 0;
+  }
+
+  .logoImg {
+    height: 36px;
+  }
+
+  .heroTagline {
+    font-size: var(--font-size-xl);
+    margin-bottom: 0;
+    text-align: right;
+  }
+
+  .formPanel {
+    padding: var(--space-8) var(--space-5);
+    align-items: flex-start;
+  }
+}
+
+/* ============================================================
+   Responsive — mobile (≤ 480px)
+   ============================================================ */
+@media (max-width: 480px) {
+  .hero {
+    padding: var(--space-5) var(--space-5);
+  }
+
+  .logoText {
+    font-size: var(--font-size-xl);
+  }
+
+  .heroTagline {
+    font-size: var(--font-size-lg);
+  }
+
+  .formPanel {
+    padding: var(--space-6) var(--space-4);
+  }
+
+  .formTitle {
+    font-size: var(--font-size-2xl);
+  }
+
+  .formContainer {
+    max-width: 100%;
+  }
+}

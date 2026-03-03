@@ -1,0 +1,54 @@
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  letter-spacing: 0.01em;
+  user-select: none;
+}
+
+.required {
+  color: var(--color-accent);
+}
+
+.hint {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  margin-top: calc(-1 * var(--space-1));
+}
+
+.error {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-error);
+  animation: slideDown 200ms ease;
+}
+
+.errorIcon {
+  font-size: 0.7rem;
+  flex-shrink: 0;
+}
+
+.hasError :global(input),
+.hasError :global(textarea) {
+  border-color: var(--color-error-border) !important;
+  background-color: var(--color-error-bg);
+}
+
+.hasError :global(input):focus,
+.hasError :global(textarea):focus {
+  box-shadow: 0 0 0 3px rgba(192, 57, 43, 0.18) !important;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
