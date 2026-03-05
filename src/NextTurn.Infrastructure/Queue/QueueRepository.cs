@@ -125,4 +125,26 @@ public sealed class QueueRepository : IQueueRepository
                      (e.Status == QueueEntryStatus.Waiting || e.Status == QueueEntryStatus.Serving),
                 cancellationToken);
     }
+
+    /// <inheritdoc/>
+    public async Task<IReadOnlyList<(Guid QueueId, string QueueName, int TicketNumber, string Status)>>
+        GetUserActiveEntriesAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        return await _context.QueueEntries
+            .Where(e => e.UserId == userId &&
+                        (e.Status == QueueEntryStatus.Waiting || e.Status == QueueEntryStatus.Serving))
+            .Join(
+                _context.Queues,
+                entry => entry.QueueId,
+                queue  => queue.Id,
+                (entry, queue) => new
+                {
+                    queue.Id,
+                    queue.Name,
+                    entry.TicketNumber,
+                    StatusStr = queue.Status.ToString(),
+                })
+            .Select(x => ValueTuple.Create(x.Id, x.Name, x.TicketNumber, x.StatusStr))
+            .ToListAsync(cancellationToken);
+    }
 }

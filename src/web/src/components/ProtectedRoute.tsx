@@ -23,11 +23,13 @@
  *   ProtectedRoute is the element of a Route that declares :tenantId, so it
  *   is rendered inside that route's context and useParams() can read the param.
  *
- * Sprint 2 hardening (NT-XX):
- *   - Add `returnTo` state to the Navigate so the user is redirected back after login.
- *   - Move token storage from localStorage to in-memory + httpOnly cookie.
+ * returnTo flow (NT-31+):
+ *   When an unauthenticated user visits a protected route (e.g. a queue link shared by
+ *   an org), ProtectedRoute redirects them to /login/:tenantId?returnTo=<original path>.
+ *   LoginPage reads that param and navigates back after a successful login, so the user
+ *   lands exactly where they intended rather than on the generic dashboard.
  */
-import { Navigate, useParams } from 'react-router-dom'
+import { Navigate, useParams, useLocation } from 'react-router-dom'
 import type { ReactNode } from 'react'
 import { isAuthenticated } from '../utils/authGuard'
 import { getTokenPayload } from '../utils/authToken'
@@ -43,10 +45,15 @@ interface ProtectedRouteProps {
 
 export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
   const { tenantId } = useParams<{ tenantId: string }>()
+  const location = useLocation()
 
   // Step 1 — authentication check
   if (!isAuthenticated()) {
-    const loginPath = tenantId ? `/login/${tenantId}` : '/'
+    // Encode the full current path so LoginPage can redirect back after login.
+    const returnTo = encodeURIComponent(location.pathname + location.search)
+    const loginPath = tenantId
+      ? `/login/${tenantId}?returnTo=${returnTo}`
+      : '/'
     return <Navigate to={loginPath} replace />
   }
 

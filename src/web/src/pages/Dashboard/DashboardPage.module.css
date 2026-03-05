@@ -338,3 +338,187 @@
     white-space: nowrap;
   }
 }
+
+/* ============================================================
+   Queue section
+   ============================================================ */
+
+.queueSection,
+.joinWidget {
+  background: var(--color-white);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  box-shadow: 0 1px 6px rgba(35, 114, 39, 0.06);
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-primary);
+}
+
+.sectionTitle {
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  margin: 0;
+  color: var(--color-text);
+}
+
+.queueList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.queueCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.queueCard:hover {
+  border-color: var(--color-primary);
+  box-shadow: 0 2px 8px rgba(35, 114, 39, 0.1);
+}
+
+.queueCardInfo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.queueCardName {
+  font-weight: 600;
+  color: var(--color-text);
+  font-size: 0.9375rem;
+}
+
+.ticketChip {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  background: #e8f5e9;
+  padding: 2px 7px;
+  border-radius: 999px;
+  letter-spacing: 0.03em;
+}
+
+.queueStatusBadge {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  letter-spacing: 0.04em;
+}
+
+.queueStatusActive { background: #e8f5e9; color: #1b5e20; }
+.queueStatusPaused { background: #fff8e1; color: #f57f17; }
+.queueStatusClosed { background: #ffebee; color: #c62828; }
+
+.queueJoinLink {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  text-decoration: none;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+
+.queueJoinLink:hover { background: rgba(35, 114, 39, 0.08); }
+
+.queuePlaceholder {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+.queueSpinner {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(35, 114, 39, 0.2);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: dashSpin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes dashSpin { to { transform: rotate(360deg); } }
+
+.queueError,
+.queueEmpty {
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.queueError { color: #c62828; }
+
+/* ============================================================
+   Join by link widget
+   ============================================================ */
+
+.joinWidgetDesc {
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.joinWidgetRow {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.joinWidgetInput {
+  flex: 1;
+  padding: var(--space-2) var(--space-3);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+  font-family: inherit;
+  color: var(--color-text);
+  background: var(--color-surface);
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.joinWidgetInput:focus { border-color: var(--color-primary); }
+
+.joinWidgetBtn {
+  padding: var(--space-2) var(--space-5);
+  background: var(--color-primary);
+  color: var(--color-white);
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+
+.joinWidgetBtn:hover:not(:disabled) { background: #1b5e20; }
+.joinWidgetBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.joinWidgetError {
+  font-size: 0.8125rem;
+  color: #c62828;
+  margin: 0;
+}

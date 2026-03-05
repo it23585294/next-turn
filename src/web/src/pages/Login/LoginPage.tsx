@@ -73,6 +73,16 @@ export function LoginPage() {
         password: data.password,
       })
       saveToken(result.accessToken)
+
+      // If the user arrived here via a protected route (e.g. a shared queue link),
+      // ProtectedRoute appended ?returnTo=<path>.  Send them back there; otherwise
+      // fall through to the role-based default destination.
+      const returnTo = searchParams.get('returnTo')
+      if (returnTo) {
+        navigate(decodeURIComponent(returnTo), { replace: true })
+        return
+      }
+
       const isAdmin = result.role === 'OrgAdmin' || result.role === 'SystemAdmin'
       navigate(isAdmin ? `/admin/${tenantId}` : `/dashboard/${tenantId}`, { replace: true })
     } catch (err) {

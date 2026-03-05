@@ -17,9 +17,9 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import logoImg from '../../assets/nextTurn-logo.png'
+import { isAuthenticated } from '../../utils/authGuard'
+import { getTokenPayload } from '../../utils/authToken'
 import styles from './WelcomePage.module.css'
-
-const DEMO_TENANT = '00000000-0000-0000-0000-000000000001'
 
 export function WelcomePage() {
   return (
@@ -42,6 +42,13 @@ export function WelcomePage() {
    Navbar
    ============================================================ */
 function Navbar() {
+  const loggedIn = isAuthenticated()
+  const payload  = loggedIn ? getTokenPayload() : null
+  const isAdmin  = payload?.role === 'OrgAdmin' || payload?.role === 'SystemAdmin'
+  const dashHref = payload
+    ? (isAdmin ? `/admin/${payload.tid}` : `/dashboard/${payload.tid}`)
+    : null
+
   return (
     <header className={styles.navbar}>
       <div className={styles.navInner}>
@@ -55,19 +62,15 @@ function Navbar() {
         </nav>
 
         <div className={styles.navActions}>
-          <Link
-            to={`/login/${DEMO_TENANT}`}
-            className={styles.btnOutline}
-            style={{ marginRight: 'var(--space-2)' }}
-          >
-            Sign In
-          </Link>
-          <Link
-            to={`/register/${DEMO_TENANT}`}
-            className={styles.btnOutline}
-          >
-            Get Started
-          </Link>
+          {loggedIn && dashHref ? (
+            <Link to={dashHref} className={styles.btnPrimary}>
+              My Dashboard
+            </Link>
+          ) : (
+            <a href="#hero" className={styles.forOrgsLink}>
+              Get Started
+            </a>
+          )}
         </div>
       </div>
     </header>
@@ -79,7 +82,7 @@ function Navbar() {
    ============================================================ */
 function HeroSection() {
   return (
-    <section className={styles.hero}>
+    <section id="hero" className={styles.hero}>
       {/* Background decoration */}
       <div className={styles.heroBlob1} aria-hidden="true" />
       <div className={styles.heroBlob2} aria-hidden="true" />
@@ -99,7 +102,7 @@ function HeroSection() {
 
           <div className={styles.heroCtas}>
             <Link
-              to={`/register/${DEMO_TENANT}`}
+              to="/register-org"
               className={styles.btnPrimary}
             >
               Create Free Account
@@ -270,7 +273,7 @@ function CtaSection() {
             Create your account in under a minute and join your first queue today.
           </p>
           <Link
-            to={`/register/${DEMO_TENANT}`}
+            to="/register-org"
             className={styles.ctaBtn}
           >
             Get Started — It's Free

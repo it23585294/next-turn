@@ -170,3 +170,61 @@ export async function getOrgQueues(
     throw parseApiError(err)
   }
 }
+
+/**
+ * GET /api/queues/browse
+ *
+ * Lists all queues for the authenticated user's organisation.
+ * Accessible to any authenticated role (User, Staff, OrgAdmin, SystemAdmin).
+ * Used by the user dashboard so regular users can see and join available queues.
+ *
+ * @throws ApiError on:
+ *   401 — missing or invalid JWT
+ */
+export async function getAvailableQueues(
+  tenantId: string,
+): Promise<OrgQueueSummary[]> {
+  try {
+    const token = getToken()
+    const { data } = await apiClient.get<OrgQueueSummary[]>(
+      `/queues/browse`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'X-Tenant-Id': tenantId,
+        },
+      }
+    )
+    return data
+  } catch (err) {
+    throw parseApiError(err)
+  }
+}
+
+/** A queue the current user has an active ticket in. */
+export interface MyQueueEntry {
+  queueId:      string
+  queueName:    string
+  ticketNumber: number
+  queueStatus:  string
+}
+
+/**
+ * GET /api/queues/my-entries
+ * Returns the queues the authenticated user is currently active in
+ * (entry status Waiting or Serving).
+ */
+export async function getMyQueues(tenantId: string): Promise<MyQueueEntry[]> {
+  try {
+    const token = getToken()
+    const { data } = await apiClient.get<MyQueueEntry[]>(`/queues/my-entries`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'X-Tenant-Id': tenantId,
+      },
+    })
+    return data
+  } catch (err) {
+    throw parseApiError(err)
+  }
+}

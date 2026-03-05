@@ -78,4 +78,12 @@ public interface IQueueRepository
     /// This correctly reflects real position even when entries ahead have been served.
     /// </summary>
     Task<int> GetUserPositionAsync(Guid queueId, int ticketNumber, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Returns a lightweight projection of every queue the user currently has an active entry in.
+    /// Active means <see cref="QueueEntryStatus.Waiting"/> or <see cref="QueueEntryStatus.Serving"/>.
+    /// Used by the end-user dashboard to show "My Queues".
+    /// </summary>
+    Task<IReadOnlyList<(Guid QueueId, string QueueName, int TicketNumber, string Status)>>
+        GetUserActiveEntriesAsync(Guid userId, CancellationToken cancellationToken);
 }

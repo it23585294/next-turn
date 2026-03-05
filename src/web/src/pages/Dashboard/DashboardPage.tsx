@@ -18,9 +18,11 @@
  *  - Role-based layout (staff vs user vs admin views)
  *  - Token refresh / 401 interceptor
  */
-import { useNavigate, useParams } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useNavigate, useParams, Link } from 'react-router-dom'
 import { clearToken } from '../../utils/authToken'
 import { getTokenPayload } from '../../utils/authToken'
+import { getMyQueues, type MyQueueEntry } from '../../api/queues'
 import logoImg from '../../assets/nextTurn-logo.png'
 import styles from './DashboardPage.module.css'
 
@@ -49,6 +51,36 @@ export function DashboardPage() {
 
   const { name, email, role } = payload
   const badge = roleBadgeLabel(role)
+
+  // ── My active queues ──────────────────────────────────────────────────
+  const [queues, setQueues] = useState<MyQueueEntry[]>([])
+  const [queuesLoading, setQueuesLoading] = useState(true)
+  const [queuesError, setQueuesError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!tenantId) return
+    getMyQueues(tenantId)
+      .then(data => { setQueues(data); setQueuesLoading(false) })
+      .catch(() => { setQueuesError('Could not load your queues.'); setQueuesLoading(false) })
+  }, [tenantId])
+
+  // ── Join by link ─────────────────────────────────────────────────────
+  const [linkInput, setLinkInput] = useState('')
+  const [linkError, setLinkError] = useState<string | null>(null)
+
+  function handleJoinByLink() {
+    setLinkError(null)
+    try {
+      // Accept full URLs or just the path segment /queues/:tenantId/:queueId
+      const url = new URL(linkInput.includes('://') ? linkInput : `https://x.com${linkInput}`)
+      const match = url.pathname.match(/\/queues\/([^/]+)\/([^/]+)/)
+      if (!match) throw new Error('invalid')
+      const [, linkTenant, linkQueue] = match
+      navigate(`/queues/${linkTenant}/${linkQueue}`)
+    } catch {
+      setLinkError('Invalid queue link. Paste the full URL or the /queues/… path.')
+    }
+  }
 
   function handleLogout() {
     clearToken()
@@ -101,32 +133,77 @@ export function DashboardPage() {
             </div>
           </div>
 
-          {/* Placeholder feature cards */}
-          <section className={styles.cardGrid} aria-label="Dashboard sections">
-            <PlaceholderCard
-              icon={<QueueIcon />}
-              title="My Queue"
-              description="View your current position, estimated wait time, and join new queues."
-              tag="Sprint 2"
-            />
-            <PlaceholderCard
-              icon={<CalendarIcon />}
-              title="Appointments"
-              description="Book, reschedule, and cancel appointments with your organisation."
-              tag="Sprint 2"
-            />
-            <PlaceholderCard
-              icon={<BellIcon />}
-              title="Notifications"
-              description="Get notified when it's your turn or your appointment is due."
-              tag="Sprint 2"
-            />
-            <PlaceholderCard
-              icon={<ChartIcon />}
-              title="Activity"
-              description="Review your past visits, queue history, and appointment records."
-              tag="Sprint 2"
-            />
+          {/* ── My active queues ─────────────────────────────────── */}
+          <section className={styles.queueSection} aria-label="My active queues">
+            <div className={styles.sectionHeader}>
+              <QueueIcon />
+              <h2 className={styles.sectionTitle}>My Active Queues</h2>
+            </div>
+
+            {queuesLoading && (
+              <div className={styles.queuePlaceholder}>
+                <span className={styles.queueSpinner} aria-hidden="true" />
+                <span>Loading queues…</span>
+              </div>
+            )}
+
+            {!queuesLoading && queuesError && (
+              <p className={styles.queueError}>{queuesError}</p>
+            )}
+
+            {!queuesLoading && !queuesError && queues.length === 0 && (
+              <p className={styles.queueEmpty}>You haven't joined any queues yet.</p>
+            )}
+
+            {!queuesLoading && queues.length > 0 && (
+              <ul className={styles.queueList}>
+                {queues.map(q => (
+                  <li key={q.queueId} className={styles.queueCard}>
+                    <div className={styles.queueCardInfo}>
+                      <span className={styles.queueCardName}>{q.queueName}</span>
+                      <QueueStatusBadge status={q.queueStatus} />
+                      <span className={styles.ticketChip}>#{q.ticketNumber}</span>
+                    </div>
+                    <Link
+                      to={`/queues/${tenantId}/${q.queueId}`}
+                      className={styles.queueJoinLink}
+                      aria-label={`View queue ${q.queueName}`}
+                    >
+                      View &rarr;
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          {/* ── Join by link ─────────────────────────────────────────── */}
+          <section className={styles.joinWidget} aria-label="Join a queue by link">
+            <div className={styles.sectionHeader}>
+              <LinkIcon />
+              <h2 className={styles.sectionTitle}>Join by Link</h2>
+            </div>
+            <p className={styles.joinWidgetDesc}>Have a queue URL? Paste it below to jump straight in.</p>
+            <div className={styles.joinWidgetRow}>
+              <input
+                className={styles.joinWidgetInput}
+                type="text"
+                placeholder="https://… or /queues/tenant/queue"
+                value={linkInput}
+                onChange={e => { setLinkInput(e.target.value); setLinkError(null) }}
+                onKeyDown={e => e.key === 'Enter' && handleJoinByLink()}
+                aria-label="Queue link"
+              />
+              <button
+                className={styles.joinWidgetBtn}
+                onClick={handleJoinByLink}
+                type="button"
+                disabled={!linkInput.trim()}
+              >
+                Go
+              </button>
+            </div>
+            {linkError && <p className={styles.joinWidgetError}>{linkError}</p>}
           </section>
 
           {/* Auth flow confirmation — useful during demo / grading */}
@@ -147,26 +224,14 @@ export function DashboardPage() {
 }
 
 /* ------------------------------------------------------------------ */
-/* Placeholder card                                                     */
+/* Queue status badge                                                   */
 /* ------------------------------------------------------------------ */
-function PlaceholderCard({
-  icon, title, description, tag,
-}: {
-  icon: React.ReactNode
-  title: string
-  description: string
-  tag: string
-}) {
-  return (
-    <div className={styles.card}>
-      <div className={styles.cardIcon}>{icon}</div>
-      <div className={styles.cardBody}>
-        <h2 className={styles.cardTitle}>{title}</h2>
-        <p className={styles.cardDesc}>{description}</p>
-      </div>
-      <span className={styles.cardTag}>{tag}</span>
-    </div>
-  )
+function QueueStatusBadge({ status }: { status: string }) {
+  const cls =
+    status === 'Active'  ? styles.queueStatusActive :
+    status === 'Paused'  ? styles.queueStatusPaused :
+                           styles.queueStatusClosed
+  return <span className={`${styles.queueStatusBadge} ${cls}`}>{status}</span>
 }
 
 /* ------------------------------------------------------------------ */
@@ -185,7 +250,7 @@ function LogoutIcon() {
 
 function QueueIcon() {
   return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none"
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
       stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <line x1="8" y1="6" x2="21" y2="6"/>
       <line x1="8" y1="12" x2="21" y2="12"/>
@@ -197,35 +262,12 @@ function QueueIcon() {
   )
 }
 
-function CalendarIcon() {
+function LinkIcon() {
   return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none"
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
       stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-      <line x1="16" y1="2" x2="16" y2="6"/>
-      <line x1="8"  y1="2" x2="8"  y2="6"/>
-      <line x1="3"  y1="10" x2="21" y2="10"/>
-    </svg>
-  )
-}
-
-function BellIcon() {
-  return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-      <path d="M13.73 21a2 2 0 01-3.46 0"/>
-    </svg>
-  )
-}
-
-function ChartIcon() {
-  return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="18" y1="20" x2="18" y2="10"/>
-      <line x1="12" y1="20" x2="12" y2="4"/>
-      <line x1="6"  y1="20" x2="6"  y2="14"/>
+      <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/>
+      <path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/>
     </svg>
   )
 }

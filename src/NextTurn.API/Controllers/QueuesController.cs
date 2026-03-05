@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using NextTurn.API.Models.Queues;
 using NextTurn.Application.Queue.Commands.CreateQueue;
 using NextTurn.Application.Queue.Commands.JoinQueue;
+using NextTurn.Application.Queue.Queries.GetMyQueues;
 using NextTurn.Application.Queue.Queries.GetQueueStatus;
 using NextTurn.Application.Queue.Queries.ListOrgQueues;
 
@@ -153,6 +154,47 @@ public sealed class QueuesController : ControllerBase
         var query  = new ListOrgQueuesQuery(organisationId);
         var result = await _sender.Send(query, cancellationToken);
 
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// List all active queues for the authenticated user's organisation.
+    /// Accessible to any authenticated role so regular users can browse
+    /// available queues on their dashboard without needing OrgAdmin rights.
+    /// </summary>
+    [HttpGet("browse")]
+    [ProducesResponseType(typeof(IReadOnlyList<OrgQueueSummary>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> BrowseQueues(CancellationToken cancellationToken)
+    {
+        var tenantIdClaim = User.FindFirstValue("tid");
+
+        if (!Guid.TryParse(tenantIdClaim, out var organisationId))
+            return Unauthorized();
+
+        var query  = new ListOrgQueuesQuery(organisationId);
+        var result = await _sender.Send(query, cancellationToken);
+
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Returns every queue the authenticated user currently has an active ticket in.
+    /// Active means the entry status is Waiting or Serving.
+    /// </summary>
+    [HttpGet("my-entries")]
+    [ProducesResponseType(typeof(IReadOnlyList<MyQueueEntry>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> GetMyQueues(CancellationToken cancellationToken)
+    {
+        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier)
+                       ?? User.FindFirstValue("sub");
+
+        if (!Guid.TryParse(userIdClaim, out var userId))
+            return Unauthorized();
+
+        var query  = new GetMyQueuesQuery(userId);
+        var result = await _sender.Send(query, cancellationToken);
         return Ok(result);
     }
 
