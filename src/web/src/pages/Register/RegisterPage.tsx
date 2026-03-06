@@ -238,8 +238,8 @@ export function RegisterPage() {
 
           <p className={styles.legal}>
             By creating an account, you agree to our{' '}
-            <a href="#" className={styles.link}>Terms of Service</a> and{' '}
-            <a href="#" className={styles.link}>Privacy Policy</a>.
+            <Link to="/terms" className={styles.link}>Terms of Service</Link> and{' '}
+            <Link to="/privacy" className={styles.link}>Privacy Policy</Link>.
           </p>
         </div>
       </div>
