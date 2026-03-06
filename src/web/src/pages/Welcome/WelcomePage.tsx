@@ -102,7 +102,7 @@ function HeroSection() {
 
           <div className={styles.heroCtas}>
             <Link
-              to="/register-org"
+              to="/register"
               className={styles.btnPrimary}
             >
               Create Free Account
@@ -273,7 +273,7 @@ function CtaSection() {
             Create your account in under a minute and join your first queue today.
           </p>
           <Link
-            to="/register-org"
+            to="/register"
             className={styles.ctaBtn}
           >
             Get Started — It's Free
