@@ -53,6 +53,30 @@ public sealed class UserRepository : IUserRepository
             .AnyAsync(u => u.Email.Value == email.Value, cancellationToken);
     }
 
+    /// <inheritdoc/>
+    public async Task<User?> GetByEmailGlobalAsync(
+        EmailAddress email,
+        CancellationToken cancellationToken = default)
+    {
+        // IgnoreQueryFilters bypasses the EF global tenant query filter so we can
+        // find consumer users (TenantId = Guid.Empty) or users from any org.
+        return await _context.Users
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(u => u.Email.Value == email.Value, cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task<bool> ExistsGlobalAsync(
+        EmailAddress email,
+        CancellationToken cancellationToken = default)
+    {
+        // Checks email uniqueness across ALL tenants — used for consumer registration
+        // so a consumer account can only exist once, regardless of org.
+        return await _context.Users
+            .IgnoreQueryFilters()
+            .AnyAsync(u => u.Email.Value == email.Value, cancellationToken);
+    }
+
     // ── Commands ──────────────────────────────────────────────────────────────
 
     /// <inheritdoc/>
