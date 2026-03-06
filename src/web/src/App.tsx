@@ -3,29 +3,33 @@
  *
  * Routes:
  *  /                       → WelcomePage (landing)
- *  /register/:tenantId     → RegisterPage
- *  /login/:tenantId        → LoginPage
- *  /dashboard/:tenantId    → ProtectedRoute (any role)  → DashboardPage
+ *  /register               → GlobalRegisterPage (consumer — no tenantId)
+ *  /login                  → GlobalLoginPage    (consumer — no tenantId)
+ *  /register/:tenantId     → RegisterPage (org-member)
+ *  /login/:tenantId        → LoginPage    (org-member)
+ *  /dashboard              → ProtectedRoute → DashboardPage (consumer user, no tenantId)
+ *  /dashboard/:tenantId    → ProtectedRoute → DashboardPage
  *  /staff/:tenantId        → ProtectedRoute (Staff+)    → stub
- *  /admin/:tenantId        → ProtectedRoute (OrgAdmin+) → stub
+ *  /admin/:tenantId        → ProtectedRoute (OrgAdmin+) → AdminDashboardPage
  *  /system/:tenantId       → ProtectedRoute (SystemAdmin) → stub
+ *  /queues/:tenantId/:queueId → ProtectedRoute → QueuePage
+ *  /register-org           → OrgRegistrationPage
  *  /access-denied          → AccessDeniedPage
  *  *                       → redirect to /
- *
- * The /staff, /admin, /system routes are stubs (NT-12-66) — they exist solely
- * to prove the role guards work in tests and during the sprint demo.
- * Real feature pages will replace the stubs in Sprint 2+.
  */
 import { Routes, Route, Navigate } from 'react-router-dom'
-import { WelcomePage } from './pages/Welcome'
-import { RegisterPage } from './pages/Register'
-import { LoginPage } from './pages/Login'
-import { DashboardPage } from './pages/Dashboard'
-import { AccessDeniedPage } from './pages/AccessDenied'
-import { OrgRegistrationPage } from './pages/OrgRegistration'
-import { ProtectedRoute } from './components/ProtectedRoute'
-import { QueuePage } from './pages/Queue'
-import { AdminDashboardPage } from './pages/Admin'
+import { WelcomePage }          from './pages/Welcome'
+import { RegisterPage }         from './pages/Register'
+import { LoginPage }            from './pages/Login'
+import { GlobalRegisterPage }   from './pages/GlobalRegister'
+import { GlobalLoginPage }      from './pages/GlobalLogin'
+import { DashboardPage }        from './pages/Dashboard'
+import { AccessDeniedPage }     from './pages/AccessDenied'
+import { OrgRegistrationPage }  from './pages/OrgRegistration'
+import { ProtectedRoute }       from './components/ProtectedRoute'
+import { QueuePage }            from './pages/Queue'
+import { AdminDashboardPage }   from './pages/Admin'
+import { TermsPage, PrivacyPage } from './pages/Legal'
 
 // ── Role-restricted stub pages ────────────────────────────────────────────────
 // Temporary placeholders so the route guards have real targets during NT-12
@@ -37,10 +41,24 @@ function App() {
   return (
     <Routes>
       <Route path="/" element={<WelcomePage />} />
+
+      {/* Consumer (end-user) auth — no tenantId */}
+      <Route path="/register" element={<GlobalRegisterPage />} />
+      <Route path="/login"    element={<GlobalLoginPage />} />
+
+      {/* Org-member auth — scoped to a specific org */}
       <Route path="/register/:tenantId" element={<RegisterPage />} />
-      <Route path="/login/:tenantId" element={<LoginPage />} />
+      <Route path="/login/:tenantId"    element={<LoginPage />} />
 
       {/* Any authenticated user */}
+      <Route
+        path="/dashboard"
+        element={
+          <ProtectedRoute>
+            <DashboardPage />
+          </ProtectedRoute>
+        }
+      />
       <Route
         path="/dashboard/:tenantId"
         element={
@@ -92,6 +110,10 @@ function App() {
 
       {/* Public — no tenant context required; org doesn't exist yet */}
       <Route path="/register-org" element={<OrgRegistrationPage />} />
+
+      {/* Legal */}
+      <Route path="/terms"   element={<TermsPage />} />
+      <Route path="/privacy" element={<PrivacyPage />} />
 
       <Route path="/access-denied" element={<AccessDeniedPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />

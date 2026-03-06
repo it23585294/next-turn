@@ -53,7 +53,7 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
     const returnTo = encodeURIComponent(location.pathname + location.search)
     const loginPath = tenantId
       ? `/login/${tenantId}?returnTo=${returnTo}`
-      : '/'
+      : `/login?returnTo=${returnTo}`
     return <Navigate to={loginPath} replace />
   }
 

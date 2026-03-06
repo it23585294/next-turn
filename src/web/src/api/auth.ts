@@ -65,3 +65,38 @@ export async function loginUser(
     throw parsed
   }
 }
+
+/**
+ * POST /api/auth/register-global
+ * Registers a consumer (end-user) account — no X-Tenant-Id required.
+ * The created user can join queues from any organisation.
+ */
+export async function registerGlobalUser(
+  body: RegisterRequest
+): Promise<RegisterResult> {
+  try {
+    await apiClient.post('/auth/register-global', body)
+    return { ok: true }
+  } catch (err) {
+    const parsed: ApiError = parseApiError(err)
+    throw parsed
+  }
+}
+
+/**
+ * POST /api/auth/login-global
+ * Authenticates a consumer account — no X-Tenant-Id required.
+ * Returns a JWT with tid = 00000000-0000-0000-0000-000000000000.
+ * The frontend then supplies X-Tenant-Id per-request for org-specific APIs.
+ */
+export async function loginGlobalUser(
+  body: LoginRequest
+): Promise<LoginResult> {
+  try {
+    const { data } = await apiClient.post<LoginResult>('/auth/login-global', body)
+    return data
+  } catch (err) {
+    const parsed: ApiError = parseApiError(err)
+    throw parsed
+  }
+}
