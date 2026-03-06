@@ -4,7 +4,9 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using NextTurn.API.Models.Auth;
 using NextTurn.Application.Auth;
+using NextTurn.Application.Auth.Commands.LoginGlobalUser;
 using NextTurn.Application.Auth.Commands.LoginUser;
+using NextTurn.Application.Auth.Commands.RegisterGlobalUser;
 using NextTurn.Application.Auth.Commands.RegisterUser;
 
 namespace NextTurn.API.Controllers;
@@ -93,6 +95,78 @@ public sealed class AuthController : ControllerBase
         CancellationToken cancellationToken)
     {
         var command = new LoginUserCommand(request.Email, request.Password);
+
+        LoginResult result = await _sender.Send(command, cancellationToken);
+
+        var response = new LoginResponse(
+            result.AccessToken,
+            result.UserId,
+            result.Name,
+            result.Email,
+            result.Role);
+
+        return Ok(response);
+    }
+
+    /// <summary>
+    /// Register a new consumer (end-user) account — no organisation affiliation required.
+    /// </summary>
+    /// <remarks>
+    /// Does NOT require an X-Tenant-Id header.  The created user has TenantId = Guid.Empty,
+    /// meaning they can join queues from any organisation.
+    ///
+    /// Returns 201 Created on success.
+    ///
+    /// Error responses:
+    ///   400 — email already in use
+    ///   422 — validation failure
+    /// </remarks>
+    [HttpPost("register-global")]
+    [AllowAnonymous]
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> RegisterGlobal(
+        [FromBody] RegisterRequest request,
+        CancellationToken cancellationToken)
+    {
+        var command = new RegisterGlobalUserCommand(
+            request.Name,
+            request.Email,
+            request.Phone,
+            request.Password);
+
+        await _sender.Send(command, cancellationToken);
+
+        return StatusCode(StatusCodes.Status201Created);
+    }
+
+    /// <summary>
+    /// Authenticate a consumer (end-user) account — no organisation affiliation required.
+    /// </summary>
+    /// <remarks>
+    /// Does NOT require an X-Tenant-Id header.  The returned JWT has tid = Guid.Empty;
+    /// the frontend supplies X-Tenant-Id per-request for org-specific API calls.
+    ///
+    /// Rate limited to 10 requests per 60-second sliding window per client IP.
+    ///
+    /// Error responses:
+    ///   400 — invalid credentials or account locked
+    ///   422 — validation failure
+    ///   429 — rate limit exceeded
+    /// </remarks>
+    [HttpPost("login-global")]
+    [AllowAnonymous]
+    [EnableRateLimiting("login")]
+    [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> LoginGlobal(
+        [FromBody] LoginRequest request,
+        CancellationToken cancellationToken)
+    {
+        var command = new LoginGlobalUserCommand(request.Email, request.Password);
 
         LoginResult result = await _sender.Send(command, cancellationToken);
 
