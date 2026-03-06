@@ -203,24 +203,25 @@ export async function getAvailableQueues(
 
 /** A queue the current user has an active ticket in. */
 export interface MyQueueEntry {
-  queueId:      string
-  queueName:    string
-  ticketNumber: number
-  queueStatus:  string
+  queueId:        string
+  organisationId: string
+  queueName:      string
+  ticketNumber:   number
+  queueStatus:    string
 }
 
 /**
  * GET /api/queues/my-entries
  * Returns the queues the authenticated user is currently active in
  * (entry status Waiting or Serving).
+ * No X-Tenant-Id required — the user's JWT sub identifies them globally.
  */
-export async function getMyQueues(tenantId: string): Promise<MyQueueEntry[]> {
+export async function getMyQueues(): Promise<MyQueueEntry[]> {
   try {
     const token = getToken()
     const { data } = await apiClient.get<MyQueueEntry[]>(`/queues/my-entries`, {
       headers: {
         Authorization: `Bearer ${token}`,
-        'X-Tenant-Id': tenantId,
       },
     })
     return data
