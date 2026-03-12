@@ -1,0 +1,1 @@
+export { GlobalRegisterPage } from './GlobalRegisterPage'

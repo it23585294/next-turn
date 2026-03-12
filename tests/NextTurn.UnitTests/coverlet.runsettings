@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+  coverlet.runsettings — Coverage scope for NextTurn.UnitTests
+  ─────────────────────────────────────────────────────────────
+  Unit tests are designed to cover Domain and Application (pure logic,
+  no external dependencies).  Infrastructure (EF Core repositories,
+  migrations, DI registration) and the API host itself are covered by
+  NextTurn.IntegrationTests (Testcontainers + Respawn) and are
+  deliberately excluded here to prevent false-low numbers.
+
+  The 80% line + branch threshold applies to the included assemblies.
+-->
+<RunSettings>
+  <DataCollectionRunSettings>
+    <DataCollectors>
+      <DataCollector friendlyName="XPlat Code Coverage">
+        <Configuration>
+          <!-- Include only pure-logic layers -->
+          <Include>[NextTurn.Domain]*,[NextTurn.Application]*</Include>
+          <!-- Exclude generated and framework-decoration code -->
+          <ExcludeByAttribute>
+            System.CodeDom.Compiler.GeneratedCodeAttribute,
+            System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute
+          </ExcludeByAttribute>
+          <IncludeTestAssembly>false</IncludeTestAssembly>
+          <SingleHit>false</SingleHit>
+          <DeterministicReport>false</DeterministicReport>
+        </Configuration>
+      </DataCollector>
+    </DataCollectors>
+  </DataCollectionRunSettings>
+</RunSettings>

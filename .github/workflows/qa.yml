@@ -1,0 +1,114 @@
+name: QA (Full Test Suite)
+
+on:
+  push:
+    branches: [ "qa" ]
+  pull_request:
+    branches: [ "qa" ]
+
+jobs:
+  test:
+    name: Unit + Integration Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore
+        run: dotnet restore NextTurn.slnx
+
+      - name: Build
+        run: dotnet build NextTurn.slnx --configuration Release --no-restore
+
+      # ── Unit tests with coverlet XPlat coverage ───────────────────────────
+      # Coverage is scoped to Domain + Application only (see coverlet.runsettings).
+      - name: Run unit tests with coverage
+        run: |
+          dotnet test tests/NextTurn.UnitTests/NextTurn.UnitTests.csproj \
+            --configuration Release \
+            --no-build \
+            --settings tests/NextTurn.UnitTests/coverlet.runsettings \
+            --collect:"XPlat Code Coverage" \
+            --results-directory ./coverage \
+            --logger "trx;LogFileName=unit-tests.trx"
+
+      # ── Report generation ─────────────────────────────────────────────────
+      - name: Install ReportGenerator
+        run: dotnet tool install --global dotnet-reportgenerator-globaltool
+
+      - name: Generate coverage report
+        run: |
+          reportgenerator \
+            -reports:"./coverage/**/coverage.cobertura.xml" \
+            -targetdir:"./coverage/report" \
+            -reporttypes:"Html;Cobertura;Badges;MarkdownSummaryGithub"
+
+      - name: Write coverage summary to job summary
+        if: always()
+        run: cat ./coverage/report/SummaryGithub.md >> $GITHUB_STEP_SUMMARY
+
+      # ── Artifact upload (always — visible even when gate fails) ───────────
+      - name: Upload coverage report artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: ./coverage/report
+
+      # ── Quality gate: ≥ 80% line coverage AND ≥ 80% branch coverage ──────
+      - name: Enforce coverage threshold (>=80% line & branch)
+        run: |
+          python3 - <<'EOF'
+          import xml.etree.ElementTree as ET, sys
+
+          tree = ET.parse("./coverage/report/Cobertura.xml")
+          root = tree.getroot()
+
+          line   = float(root.attrib["line-rate"])   * 100
+          branch = float(root.attrib["branch-rate"]) * 100
+
+          print(f"Line coverage:   {line:.1f}%")
+          print(f"Branch coverage: {branch:.1f}%")
+
+          failures = []
+          if line < 80:
+              failures.append(f"Line coverage {line:.1f}% is below the 80% minimum")
+          if branch < 80:
+              failures.append(f"Branch coverage {branch:.1f}% is below the 80% minimum")
+
+          if failures:
+              for msg in failures:
+                  print(f"::error::{msg}")
+              sys.exit(1)
+
+          print("Coverage threshold met")
+          EOF
+
+      # ── Integration tests ─────────────────────────────────────────────────
+      # ubuntu-latest has Docker pre-installed.
+      # Testcontainers.MsSql spins up mcr.microsoft.com/mssql/server:2022-latest
+      # automatically — no manual container setup required here.
+      - name: Run integration tests
+        run: |
+          dotnet test tests/NextTurn.IntegrationTests/NextTurn.IntegrationTests.csproj \
+            --configuration Release \
+            --no-build \
+            --logger "trx;LogFileName=integration-tests.trx"
+
+      # ── Newman contract tests (Sprint 2 stretch) ──────────────────────────
+      # Only runs when a Postman collection is present in tests/postman/.
+      - name: Setup Node
+        if: hashFiles('tests/postman/*.json') != ''
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Run Newman contract tests
+        if: hashFiles('tests/postman/*.json') != ''
+        run: npx newman run tests/postman/NextTurn.postman_collection.json

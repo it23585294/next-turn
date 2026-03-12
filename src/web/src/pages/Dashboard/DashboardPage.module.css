@@ -1,0 +1,524 @@
+/* ============================================================
+   DashboardPage — Protected dashboard layout (Sprint 1 placeholder)
+   ============================================================ */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: var(--color-surface);
+}
+
+/* ============================================================
+   Top nav
+   ============================================================ */
+.navbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--color-white);
+  border-bottom: 1px solid var(--color-border);
+  box-shadow: 0 1px 4px rgba(35, 114, 39, 0.06);
+}
+
+.navInner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 var(--space-6);
+  height: 64px;
+}
+
+.navBrand {
+  display: flex;
+  align-items: center;
+}
+
+.navLogo {
+  height: 36px;
+  width: auto;
+  object-fit: contain;
+}
+
+/* Right side: avatar + name/role + logout */
+.navUser {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.avatarCircle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+  color: var(--color-white);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  flex-shrink: 0;
+}
+
+.userMeta {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.userName {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+/* Role badge */
+.roleBadge {
+  display: inline-block;
+  padding: 1px var(--space-2);
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.roleUser        { background: #e8f5e9; color: #237227; }
+.roleStaff       { background: #e3f2fd; color: #1565c0; }
+.roleOrgAdmin    { background: #fff3e0; color: #e65100; }
+.roleSystemAdmin { background: #f3e5f5; color: #6a1b9a; }
+
+/* Logout button */
+.logoutBtn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), color var(--transition-fast),
+    background-color var(--transition-fast);
+  white-space: nowrap;
+}
+
+.logoutBtn:hover {
+  border-color: var(--color-error-border);
+  color: var(--color-error);
+  background-color: var(--color-error-bg);
+}
+
+/* ============================================================
+   Main content area
+   ============================================================ */
+.main {
+  flex: 1;
+  padding: var(--space-10) var(--space-6);
+}
+
+.contentInner {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+/* ============================================================
+   Welcome banner
+   ============================================================ */
+.welcome {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  padding: var(--space-6) var(--space-8);
+  background: linear-gradient(135deg, #1a5c1e 0%, #237227 60%, #2b8630 100%);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 4px 20px rgba(35, 114, 39, 0.18);
+}
+
+.welcomeHeading {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-extrabold);
+  color: var(--color-white);
+  letter-spacing: -0.02em;
+  margin-bottom: var(--space-1);
+}
+
+.welcomeSub {
+  font-size: var(--font-size-sm);
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.tenantChip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  font-size: var(--font-size-xs);
+  color: rgba(255, 255, 255, 0.85);
+  align-self: center;
+}
+
+.tenantChip code {
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  opacity: 0.85;
+}
+
+/* ============================================================
+   Feature placeholder cards
+   ============================================================ */
+.cardGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: var(--space-5);
+}
+
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-6);
+  background: var(--color-white);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  transition: box-shadow var(--transition-fast), transform var(--transition-fast);
+  overflow: hidden;
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--color-primary), var(--color-secondary));
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.card:hover {
+  box-shadow: 0 6px 20px rgba(35, 114, 39, 0.10);
+  transform: translateY(-2px);
+}
+
+.card:hover::before {
+  opacity: 1;
+}
+
+.cardIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  color: var(--color-primary);
+}
+
+.cardBody {
+  flex: 1;
+}
+
+.cardTitle {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-2);
+}
+
+.cardDesc {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.65;
+}
+
+.cardTag {
+  display: inline-block;
+  padding: 2px var(--space-3);
+  background: var(--color-accent-light);
+  color: #7a4f00;
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: 999px;
+  align-self: flex-start;
+}
+
+/* ============================================================
+   Auth-confirmed note card
+   ============================================================ */
+.authCard {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-6);
+  background: var(--color-success-bg);
+  border: 1px solid var(--color-border);
+  border-left: 4px solid var(--color-primary);
+  border-radius: var(--radius-lg);
+  color: var(--color-text-secondary);
+}
+
+.authCardTitle {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-primary);
+  margin-bottom: 2px;
+}
+
+.authCardBody {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+/* ============================================================
+   Responsive
+   ============================================================ */
+@media (max-width: 768px) {
+  .navInner {
+    padding: 0 var(--space-4);
+  }
+
+  .userMeta {
+    display: none;
+  }
+
+  .main {
+    padding: var(--space-6) var(--space-4);
+  }
+
+  .welcome {
+    padding: var(--space-5) var(--space-5);
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .welcomeHeading {
+    font-size: var(--font-size-xl);
+  }
+
+  .cardGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .logoutBtn span {
+    display: none; /* show only icon on very small screens */
+  }
+
+  .tenantChip {
+    font-size: 10px;
+  }
+
+  .tenantChip code {
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+/* ============================================================
+   Queue section
+   ============================================================ */
+
+.queueSection,
+.joinWidget {
+  background: var(--color-white);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  box-shadow: 0 1px 6px rgba(35, 114, 39, 0.06);
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-primary);
+}
+
+.sectionTitle {
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  margin: 0;
+  color: var(--color-text);
+}
+
+.queueList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.queueCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.queueCard:hover {
+  border-color: var(--color-primary);
+  box-shadow: 0 2px 8px rgba(35, 114, 39, 0.1);
+}
+
+.queueCardInfo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.queueCardName {
+  font-weight: 600;
+  color: var(--color-text);
+  font-size: 0.9375rem;
+}
+
+.ticketChip {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  background: #e8f5e9;
+  padding: 2px 7px;
+  border-radius: 999px;
+  letter-spacing: 0.03em;
+}
+
+.queueStatusBadge {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  letter-spacing: 0.04em;
+}
+
+.queueStatusActive { background: #e8f5e9; color: #1b5e20; }
+.queueStatusPaused { background: #fff8e1; color: #f57f17; }
+.queueStatusClosed { background: #ffebee; color: #c62828; }
+
+.queueJoinLink {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  text-decoration: none;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+
+.queueJoinLink:hover { background: rgba(35, 114, 39, 0.08); }
+
+.queuePlaceholder {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+.queueSpinner {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(35, 114, 39, 0.2);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: dashSpin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes dashSpin { to { transform: rotate(360deg); } }
+
+.queueError,
+.queueEmpty {
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.queueError { color: #c62828; }
+
+/* ============================================================
+   Join by link widget
+   ============================================================ */
+
+.joinWidgetDesc {
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.joinWidgetRow {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.joinWidgetInput {
+  flex: 1;
+  padding: var(--space-2) var(--space-3);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+  font-family: inherit;
+  color: var(--color-text);
+  background: var(--color-surface);
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.joinWidgetInput:focus { border-color: var(--color-primary); }
+
+.joinWidgetBtn {
+  padding: var(--space-2) var(--space-5);
+  background: var(--color-primary);
+  color: var(--color-white);
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+
+.joinWidgetBtn:hover:not(:disabled) { background: #1b5e20; }
+.joinWidgetBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.joinWidgetError {
+  font-size: 0.8125rem;
+  color: #c62828;
+  margin: 0;
+}

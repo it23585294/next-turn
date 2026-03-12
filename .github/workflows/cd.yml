@@ -1,15 +1,92 @@
-- name: Publish
-run: dotnet publish ./src/backend/NextTurn.Api/NextTurn.Api.csproj -c Release -o ./publish
+name: CD (Deploy to Azure + Vercel)
 
-- name: Zip publish output
-run: |
-  cd publish
-  zip -r ../publish.zip .
-  cd ..
+on:
+  push:
+    branches: ["main"]
 
-- name: Deploy to Azure Web App
-uses: azure/webapps-deploy@v3
-with:
-  app-name: nextturn
-  publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-  package: ./publish.zip
+permissions:
+  contents: read
+
+jobs:
+  deploy-backend:
+    name: Backend → Azure App Service
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore
+        run: dotnet restore ./src/NextTurn.API/NextTurn.API.csproj
+
+      - name: Build
+        run: dotnet build ./src/NextTurn.API/NextTurn.API.csproj -c Release --no-restore
+
+      - name: Install EF Tools
+        run: dotnet tool install --global dotnet-ef
+
+      - name: Generate migration script
+        run: |
+          dotnet ef migrations script --idempotent \
+            --project src/NextTurn.Infrastructure \
+            --startup-project src/NextTurn.API \
+            -o migrate.sql
+
+      - name: Apply migrations to Azure SQL
+        uses: azure/sql-action@v2
+        with:
+          connection-string: ${{ secrets.AZURE_SQL_CONNECTION_STRING }}
+          path: migrate.sql
+
+      - name: Publish
+        run: dotnet publish ./src/NextTurn.API/NextTurn.API.csproj -c Release -o publish
+
+      - name: Zip publish output
+        run: |
+          cd publish
+          zip -r ../publish.zip .
+          cd ..
+
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: nextturn
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: ./publish.zip
+
+  deploy-frontend:
+    name: Frontend → Vercel
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        working-directory: src/web
+        run: npm ci
+
+      - name: Build
+        working-directory: src/web
+        run: npm run build
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+
+      - name: Deploy to Vercel
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          working-directory: src/web
+          vercel-args: "--prod"
