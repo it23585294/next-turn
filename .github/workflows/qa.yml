@@ -1,13 +1,14 @@
-name: CI (.NET)
+name: QA (Full Test Suite)
 
 on:
   push:
-    branches: [ "develop" ]
+    branches: [ "qa" ]
   pull_request:
-    branches: [ "develop" ]
+    branches: [ "qa" ]
 
 jobs:
-  build-and-test:
+  test:
+    name: Unit + Integration Tests
     runs-on: ubuntu-latest
 
     steps:
@@ -27,7 +28,6 @@ jobs:
 
       # ── Unit tests with coverlet XPlat coverage ───────────────────────────
       # Coverage is scoped to Domain + Application only (see coverlet.runsettings).
-      # Infrastructure and API are covered by the integration test suite.
       - name: Run unit tests with coverage
         run: |
           dotnet test tests/NextTurn.UnitTests/NextTurn.UnitTests.csproj \
@@ -89,3 +89,26 @@ jobs:
 
           print("Coverage threshold met")
           EOF
+
+      # ── Integration tests ─────────────────────────────────────────────────
+      # ubuntu-latest has Docker pre-installed.
+      # Testcontainers.MsSql spins up mcr.microsoft.com/mssql/server:2022-latest
+      # automatically — no manual container setup required here.
+      - name: Run integration tests
+        run: |
+          dotnet test tests/NextTurn.IntegrationTests/NextTurn.IntegrationTests.csproj \
+            --configuration Release \
+            --no-build \
+            --logger "trx;LogFileName=integration-tests.trx"
+
+      # ── Newman contract tests (Sprint 2 stretch) ──────────────────────────
+      # Only runs when a Postman collection is present in tests/postman/.
+      - name: Setup Node
+        if: hashFiles('tests/postman/*.json') != ''
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Run Newman contract tests
+        if: hashFiles('tests/postman/*.json') != ''
+        run: npx newman run tests/postman/NextTurn.postman_collection.json

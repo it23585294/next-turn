@@ -2,7 +2,7 @@ name: CD (Deploy to Azure + Vercel)
 
 on:
   push:
-    branches: ["qa"]
+    branches: ["main"]
 
 permissions:
   contents: read
