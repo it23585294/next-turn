@@ -71,6 +71,26 @@ public sealed class QueueRepository : IQueueRepository
     }
 
     /// <inheritdoc/>
+    public async Task<bool> CancelEntryAsync(
+        Guid queueId,
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        var entry = await _context.QueueEntries
+            .FirstOrDefaultAsync(
+                e => e.QueueId == queueId &&
+                     e.UserId   == userId  &&
+                     (e.Status == QueueEntryStatus.Waiting || e.Status == QueueEntryStatus.Serving),
+                cancellationToken);
+
+        if (entry is null)
+            return false;
+
+        entry.Cancel();
+        return true;
+    }
+
+    /// <inheritdoc/>
     public async Task<bool> HasActiveEntryAsync(
         Guid queueId,
         Guid userId,

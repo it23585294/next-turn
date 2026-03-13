@@ -1,4 +1,5 @@
 using NextTurn.Domain.Queue.Enums;
+using NextTurn.Domain.Common;
 
 namespace NextTurn.Domain.Queue.Entities;
 
@@ -78,14 +79,13 @@ public class QueueEntry
     /// Invariant: The entry must be in <see cref="QueueEntryStatus.Waiting"/> or
     /// <see cref="QueueEntryStatus.Serving"/> status to be cancellable.
     /// </summary>
-    /// <exception cref="InvalidOperationException">
+    /// <exception cref="DomainException">
     /// Thrown if the entry is already in a terminal state (Served, Cancelled, NoShow).
     /// </exception>
     public void Cancel()
     {
         if (Status != QueueEntryStatus.Waiting && Status != QueueEntryStatus.Serving)
-            throw new InvalidOperationException(
-                $"Cannot cancel a queue entry in {Status} status. Only Waiting or Serving entries may be cancelled.");
+            throw new DomainException("Queue entry is already in a terminal state and cannot be cancelled.");
 
         Status = QueueEntryStatus.Cancelled;
     }

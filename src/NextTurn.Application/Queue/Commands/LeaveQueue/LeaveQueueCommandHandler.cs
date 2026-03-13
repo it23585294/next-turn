@@ -12,13 +12,12 @@ namespace NextTurn.Application.Queue.Commands.LeaveQueue;
 /// this handler is invoked.
 ///
 /// 4-step flow:
-///   1. Fetch the user's active entry in the queue — DomainException if not found
-///   2. Call Cancel() on the entry to transition it to Cancelled status
-///   3. Persist the mutation
+///   1. Cancel the user's active entry in the queue — DomainException if not found
+///   2. Persist the mutation
 ///   4. Return (implicit success)
 ///
-/// The entry is loaded by user and queue ID, ensuring the user can only cancel
-/// their own entry and cannot access other users' entries.
+/// The repository operation is scoped by user and queue ID, ensuring the user can
+/// only cancel their own entry and cannot access other users' entries.
 /// </summary>
 public class LeaveQueueCommandHandler : IRequestHandler<LeaveQueueCommand>
 {
@@ -37,19 +36,14 @@ public class LeaveQueueCommandHandler : IRequestHandler<LeaveQueueCommand>
         LeaveQueueCommand command,
         CancellationToken cancellationToken)
     {
-        // Step 1 — load the user's active entry (Waiting or Serving) in this queue
-        var entry = await _queueRepository.GetUserActiveEntryAsync(
+        // Step 1 — cancel the user's active entry (Waiting or Serving) in this queue
+        bool cancelled = await _queueRepository.CancelEntryAsync(
             command.QueueId, command.UserId, cancellationToken);
 
-        if (entry is null)
+        if (!cancelled)
             throw new DomainException("You are not in this queue.");
 
-        // Step 2 — cancel the entry
-        // The Cancel() method enforces the invariant that only Waiting or Serving entries
-        // may be cancelled — it will raise InvalidOperationException if violated.
-        entry.Cancel();
-
-        // Step 3 — persist the state transition
+        // Step 2 — persist the state transition
         await _context.SaveChangesAsync(cancellationToken);
     }
 }

@@ -48,6 +48,14 @@ public interface IQueueRepository
     Task AddEntryAsync(QueueEntry entry, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Cancels the user's active entry (<see cref="QueueEntryStatus.Waiting"/> or
+    /// <see cref="QueueEntryStatus.Serving"/>) in the specified queue.
+    /// Returns <c>true</c> when an active entry was found and cancelled; otherwise <c>false</c>.
+    /// The caller is responsible for committing the unit of work (SaveChangesAsync).
+    /// </summary>
+    Task<bool> CancelEntryAsync(Guid queueId, Guid userId, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Returns <c>true</c> if the user already has an active entry
     /// (<see cref="QueueEntryStatus.Waiting"/> or <see cref="QueueEntryStatus.Serving"/>)
     /// in the specified queue.
