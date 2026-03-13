@@ -409,3 +409,126 @@
 .closedBanner    { composes: alertBanner alertClosed; }
 .youreNext       { composes: alertBanner alertNext; }
 .body            { composes: idleBody; }
+
+/* ── Leave Queue Button ──────────────────────────────────────── */
+
+.leaveBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-2) var(--space-4);
+  border: 1.5px solid #ef5350;
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: transparent;
+  color: #ef5350;
+  transition: background 0.15s, color 0.15s;
+  width: 100%;
+  margin-top: var(--space-3);
+}
+
+.leaveBtn:hover:not(:disabled) {
+  background: rgba(239, 83, 80, 0.08);
+}
+
+.leaveBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* ── Modal Overlay & Box ─────────────────────────────────────── */
+
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+  z-index: 200;
+  padding: var(--space-4);
+}
+
+.modal {
+  background: var(--color-white);
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Modal Header ────────────────────────────────────────────── */
+
+.modalHeader {
+  background: linear-gradient(135deg, #1b5e20 0%, var(--color-primary) 100%);
+  padding: var(--space-6) var(--space-6) var(--space-4);
+  color: var(--color-white);
+}
+
+.modalTitle {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+/* ── Modal Body ──────────────────────────────────────────────── */
+
+.modalBody {
+  padding: var(--space-6);
+  flex: 1;
+}
+
+.modalBody p {
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  color: var(--color-text);
+  margin: 0 0 var(--space-3);
+}
+
+.modalBody p:last-child {
+  margin-bottom: 0;
+}
+
+/* ── Modal Footer ────────────────────────────────────────────── */
+
+.modalFooter {
+  padding: var(--space-4) var(--space-6) var(--space-6);
+  display: flex;
+  gap: var(--space-3);
+  flex-direction: column;
+}
+
+.modalFooter button {
+  flex: 1;
+}
+
+/* ── Danger Button ───────────────────────────────────────────── */
+
+.joinBtnDanger {
+  background: #ef5350;
+  color: var(--color-white);
+  border: none;
+}
+
+.joinBtnDanger:hover:not(:disabled) {
+  background: #e53935;
+}
+
