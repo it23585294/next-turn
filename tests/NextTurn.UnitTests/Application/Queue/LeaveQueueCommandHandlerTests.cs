@@ -4,7 +4,6 @@ using NextTurn.Application.Common.Interfaces;
 using NextTurn.Application.Queue.Commands.LeaveQueue;
 using NextTurn.Domain.Common;
 using NextTurn.Domain.Queue.Repositories;
-using QueueEntry = NextTurn.Domain.Queue.Entities.QueueEntry;
 
 namespace NextTurn.UnitTests.Application.Queue;
 
@@ -16,7 +15,8 @@ namespace NextTurn.UnitTests.Application.Queue;
 ///
 /// Key invariants exercised:
 ///   - User not in queue → DomainException "You are not in this queue."
-///   - Happy path: entry is cancelled (GetUserActiveEntryAsync returns a valid entry)
+///   - Happy path: CancelEntryAsync returns true and SaveChangesAsync is called once
+///   - Wrong-user guard: if repository cannot cancel for this queue/user pair, command fails
 ///   - SaveChangesAsync called exactly once per successful leave
 /// </summary>
 public sealed class LeaveQueueCommandHandlerTests
@@ -32,14 +32,12 @@ public sealed class LeaveQueueCommandHandlerTests
 
     private static readonly Guid QueueId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
     private static readonly Guid UserId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
-    private static readonly Guid OrgId = Guid.NewGuid();
-
     public LeaveQueueCommandHandlerTests()
     {
-        // Default: user has an active entry in the queue
+        // Default: user has an active entry in the queue and cancellation succeeds
         _queueRepositoryMock
-            .Setup(r => r.GetUserActiveEntryAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(BuildQueueEntry());
+            .Setup(r => r.CancelEntryAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
 
         _contextMock
             .Setup(c => c.SaveChangesAsync(It.IsAny<CancellationToken>()))
@@ -61,27 +59,13 @@ public sealed class LeaveQueueCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_CallsGetUserActiveEntryAsyncWithCorrectParameters()
+    public async Task Handle_CallsCancelEntryAsyncWithCorrectParameters()
     {
         await _handler.Handle(ValidCommand(), CancellationToken.None);
 
         _queueRepositoryMock.Verify(
-            r => r.GetUserActiveEntryAsync(QueueId, UserId, It.IsAny<CancellationToken>()),
+            r => r.CancelEntryAsync(QueueId, UserId, It.IsAny<CancellationToken>()),
             Times.Once);
-    }
-
-    [Fact]
-    public async Task Handle_CancelsTheEntry()
-    {
-        var entry = BuildQueueEntry();
-        _queueRepositoryMock
-            .Setup(r => r.GetUserActiveEntryAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(entry);
-
-        await _handler.Handle(ValidCommand(), CancellationToken.None);
-
-        // Verify the entry's status is now Cancelled
-        entry.Status.Should().Be(NextTurn.Domain.Queue.Enums.QueueEntryStatus.Cancelled);
     }
 
     [Fact]
@@ -97,11 +81,11 @@ public sealed class LeaveQueueCommandHandlerTests
     // ── User not in queue (step 1) ────────────────────────────────────────────
 
     [Fact]
-    public async Task Handle_WhenUserNotInQueue_ThrowsDomainException()
+    public async Task Handle_WhenCancelEntryReturnsFalse_ThrowsDomainException()
     {
         _queueRepositoryMock
-            .Setup(r => r.GetUserActiveEntryAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((QueueEntry?)null);
+            .Setup(r => r.CancelEntryAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
 
         var act = async () => await _handler.Handle(ValidCommand(), CancellationToken.None);
 
@@ -110,11 +94,11 @@ public sealed class LeaveQueueCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WhenUserNotInQueue_DoesNotCallSaveChangesAsync()
+    public async Task Handle_WhenCancelEntryReturnsFalse_DoesNotCallSaveChangesAsync()
     {
         _queueRepositoryMock
-            .Setup(r => r.GetUserActiveEntryAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((QueueEntry?)null);
+            .Setup(r => r.CancelEntryAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
 
         try { await _handler.Handle(ValidCommand(), CancellationToken.None); } catch { /* expected */ }
 
@@ -123,11 +107,24 @@ public sealed class LeaveQueueCommandHandlerTests
             Times.Never);
     }
 
+    [Fact]
+    public async Task Handle_WhenWrongUserAttemptsLeave_ThrowsDomainException()
+    {
+        var wrongUserId = Guid.Parse("dddddddd-dddd-dddd-dddd-dddddddddddd");
+        var command = new LeaveQueueCommand(QueueId, wrongUserId);
+
+        _queueRepositoryMock
+            .Setup(r => r.CancelEntryAsync(QueueId, wrongUserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var act = async () => await _handler.Handle(command, CancellationToken.None);
+
+        await act.Should().ThrowAsync<DomainException>()
+            .WithMessage("You are not in this queue.");
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private static LeaveQueueCommand ValidCommand() =>
         new(QueueId: QueueId, UserId: UserId);
-
-    private static QueueEntry BuildQueueEntry() =>
-        QueueEntry.Create(QueueId, UserId, ticketNumber: 1);
 }
