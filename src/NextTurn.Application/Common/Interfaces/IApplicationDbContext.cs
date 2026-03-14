@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using AppointmentEntity = NextTurn.Domain.Appointment.Entities.Appointment;
 using NextTurn.Domain.Auth.Entities;
 using OrganisationEntity = NextTurn.Domain.Organisation.Entities.Organisation;
 using QueueEntity        = NextTurn.Domain.Queue.Entities.Queue;
@@ -17,6 +18,7 @@ public interface IApplicationDbContext
     DbSet<OrganisationEntity> Organisations { get; }
     DbSet<QueueEntity>      Queues       { get; }
     DbSet<QueueEntry>       QueueEntries { get; }
+    DbSet<AppointmentEntity> Appointments { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken);
 }

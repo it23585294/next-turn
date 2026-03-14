@@ -159,6 +159,15 @@ export function QueuePage() {
     navigate(isAdmin ? `/admin/${tenantId}` : `/dashboard/${tenantId}`)
   }
 
+  function handleBookAppointment() {
+    if (!tenantId) {
+      navigate('/appointments')
+      return
+    }
+
+    navigate(`/appointments/${tenantId}`)
+  }
+
   // ── Loading ─────────────────────────────────────────────────────────
   if (state.status === 'loading') {
     return (
@@ -338,6 +347,7 @@ export function QueuePage() {
               className={`${styles.joinBtn} ${styles.joinBtnAccent}`}
               type="button"
               data-testid="book-appointment-btn"
+              onClick={handleBookAppointment}
             >
               Book an Appointment
             </button>

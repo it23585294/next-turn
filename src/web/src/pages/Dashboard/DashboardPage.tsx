@@ -26,6 +26,8 @@ import { getMyQueues, type MyQueueEntry } from '../../api/queues'
 import logoImg from '../../assets/nextTurn-logo.png'
 import styles from './DashboardPage.module.css'
 
+const EMPTY_TENANT = '00000000-0000-0000-0000-000000000000'
+
 /** Human-readable label for the UserRole enum string */
 function roleBadgeLabel(role: string): { label: string; className: string } {
   switch (role) {
@@ -50,6 +52,9 @@ export function DashboardPage() {
 
   const { name, email, role } = payload
   const badge = roleBadgeLabel(role)
+  const appointmentPath = payload.tid && payload.tid !== EMPTY_TENANT
+    ? `/appointments/${payload.tid}`
+    : '/appointments'
 
   // ── My active queues ──────────────────────────────────────────────────
   const [queues, setQueues] = useState<MyQueueEntry[]>([])
@@ -200,6 +205,19 @@ export function DashboardPage() {
             {linkError && <p className={styles.joinWidgetError}>{linkError}</p>}
           </section>
 
+          <section className={styles.joinWidget} aria-label="Book an appointment">
+            <div className={styles.sectionHeader}>
+              <CalendarIcon />
+              <h2 className={styles.sectionTitle}>Appointments</h2>
+            </div>
+            <p className={styles.joinWidgetDesc}>
+              Prefer a guaranteed time? Book an appointment from the slot calendar.
+            </p>
+            <Link to={appointmentPath} className={styles.queueJoinLink}>
+              Open Appointment Booking &rarr;
+            </Link>
+          </section>
+
           {/* Auth flow confirmation — useful during demo / grading */}
           <div className={styles.authCard} role="note">
             <CheckCircleIcon />
@@ -262,6 +280,18 @@ function LinkIcon() {
       stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/>
       <path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/>
+    </svg>
+  )
+}
+
+function CalendarIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+      <line x1="16" y1="2" x2="16" y2="6"/>
+      <line x1="8" y1="2" x2="8" y2="6"/>
+      <line x1="3" y1="10" x2="21" y2="10"/>
     </svg>
   )
 }

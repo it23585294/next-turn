@@ -28,6 +28,7 @@ import { AccessDeniedPage }     from './pages/AccessDenied'
 import { OrgRegistrationPage }  from './pages/OrgRegistration'
 import { ProtectedRoute }       from './components/ProtectedRoute'
 import { QueuePage }            from './pages/Queue'
+import { AppointmentPage }      from './pages/Appointment'
 import { AdminDashboardPage }   from './pages/Admin'
 import { TermsPage, PrivacyPage } from './pages/Legal'
 
@@ -104,6 +105,24 @@ function App() {
         element={
           <ProtectedRoute>
             <QueuePage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/appointments"
+        element={
+          <ProtectedRoute>
+            <AppointmentPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/appointments/:tenantId"
+        element={
+          <ProtectedRoute>
+            <AppointmentPage />
           </ProtectedRoute>
         }
       />

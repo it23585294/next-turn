@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using NextTurn.Application.Common.Interfaces;
+using AppointmentEntity  = NextTurn.Domain.Appointment.Entities.Appointment;
 using NextTurn.Domain.Auth.Entities;
 using NextTurn.Infrastructure.Persistence.Configurations.Auth;
 using OrganisationEntity = NextTurn.Domain.Organisation.Entities.Organisation;
@@ -38,6 +39,9 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<QueueEntity> Queues       => Set<QueueEntity>();
     public DbSet<QueueEntry>  QueueEntries => Set<QueueEntry>();
 
+    // Appointment module (NT-19).
+    public DbSet<AppointmentEntity> Appointments => Set<AppointmentEntity>();
+
     // ── Model configuration ───────────────────────────────────────────────────
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -73,6 +77,10 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
                 Set<QueueEntity>().Any(q =>
                     q.Id == e.QueueId &&
                     q.OrganisationId == _tenantContext.TenantId));
+
+        // Appointments: scoped by organisation (tenant).
+        modelBuilder.Entity<AppointmentEntity>()
+            .HasQueryFilter(a => a.OrganisationId == _tenantContext.TenantId);
     }
 
     // ── SaveChanges override ──────────────────────────────────────────────────
