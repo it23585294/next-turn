@@ -106,37 +106,94 @@ public sealed class AppointmentTests
     }
 
     [Fact]
-    public void Reschedule_WithValidRange_UpdatesSlotAndStatus()
+    public void Reschedule_WithFutureAppointment_MarksOriginalRescheduledAndReturnsReplacement()
     {
-        var appointment = AppointmentEntity.Create(
-            OrgId,
-            UserId,
-            new DateTimeOffset(2026, 3, 20, 10, 0, 0, TimeSpan.Zero),
-            new DateTimeOffset(2026, 3, 20, 10, 30, 0, TimeSpan.Zero));
+        var originalStart = DateTimeOffset.UtcNow.AddHours(2);
+        var originalEnd = originalStart.AddMinutes(30);
 
-        var nextStart = new DateTimeOffset(2026, 3, 21, 11, 0, 0, TimeSpan.Zero);
+        var appointment = AppointmentEntity.Create(OrgId, UserId, originalStart, originalEnd);
+
+        var nextStart = DateTimeOffset.UtcNow.AddHours(5);
         var nextEnd = nextStart.AddMinutes(45);
 
-        appointment.Reschedule(nextStart, nextEnd);
+        var replacement = appointment.Reschedule(nextStart, nextEnd);
 
-        appointment.SlotStart.Should().Be(nextStart);
-        appointment.SlotEnd.Should().Be(nextEnd);
         appointment.Status.Should().Be(AppointmentStatus.Rescheduled);
+
+        replacement.Id.Should().NotBe(appointment.Id);
+        replacement.OrganisationId.Should().Be(appointment.OrganisationId);
+        replacement.UserId.Should().Be(appointment.UserId);
+        replacement.SlotStart.Should().Be(nextStart);
+        replacement.SlotEnd.Should().Be(nextEnd);
+        replacement.Status.Should().Be(AppointmentStatus.Confirmed);
     }
 
     [Fact]
     public void Reschedule_WithInvalidRange_Throws()
     {
+        var currentStart = DateTimeOffset.UtcNow.AddHours(1);
         var appointment = AppointmentEntity.Create(
             OrgId,
             UserId,
-            new DateTimeOffset(2026, 3, 20, 10, 0, 0, TimeSpan.Zero),
-            new DateTimeOffset(2026, 3, 20, 10, 30, 0, TimeSpan.Zero));
+            currentStart,
+            currentStart.AddMinutes(30));
+
+        var sameStartAndEnd = DateTimeOffset.UtcNow.AddHours(4);
 
         var act = () => appointment.Reschedule(
-            new DateTimeOffset(2026, 3, 21, 11, 0, 0, TimeSpan.Zero),
-            new DateTimeOffset(2026, 3, 21, 11, 0, 0, TimeSpan.Zero));
+            sameStartAndEnd,
+            sameStartAndEnd);
 
         act.Should().Throw<DomainException>().WithMessage("Slot end must be after slot start.");
+    }
+
+    [Fact]
+    public void Reschedule_WhenOriginalAppointmentIsPast_ThrowsDomainException()
+    {
+        var appointment = AppointmentEntity.Create(
+            OrgId,
+            UserId,
+            DateTimeOffset.UtcNow.AddHours(-2),
+            DateTimeOffset.UtcNow.AddHours(-1));
+
+        var act = () => appointment.Reschedule(
+            DateTimeOffset.UtcNow.AddHours(1),
+            DateTimeOffset.UtcNow.AddHours(1).AddMinutes(30));
+
+        act.Should().Throw<DomainException>().WithMessage("Past appointments cannot be rescheduled.");
+    }
+
+    [Fact]
+    public void Reschedule_WhenNewSlotIsPast_ThrowsDomainException()
+    {
+        var appointment = AppointmentEntity.Create(
+            OrgId,
+            UserId,
+            DateTimeOffset.UtcNow.AddHours(1),
+            DateTimeOffset.UtcNow.AddHours(1).AddMinutes(30));
+
+        var act = () => appointment.Reschedule(
+            DateTimeOffset.UtcNow.AddMinutes(-10),
+            DateTimeOffset.UtcNow.AddMinutes(20));
+
+        act.Should().Throw<DomainException>().WithMessage("New slot must be in the future.");
+    }
+
+    [Fact]
+    public void Reschedule_WhenAppointmentNotConfirmed_ThrowsDomainException()
+    {
+        var appointment = AppointmentEntity.Create(
+            OrgId,
+            UserId,
+            DateTimeOffset.UtcNow.AddHours(1),
+            DateTimeOffset.UtcNow.AddHours(1).AddMinutes(30));
+
+        appointment.Cancel();
+
+        var act = () => appointment.Reschedule(
+            DateTimeOffset.UtcNow.AddHours(3),
+            DateTimeOffset.UtcNow.AddHours(3).AddMinutes(30));
+
+        act.Should().Throw<DomainException>().WithMessage("Only confirmed appointments can be rescheduled.");
     }
 }
