@@ -9,7 +9,7 @@
  *  - After create: shows the shareable link with a copy button
  *  - Per-queue: copy shareable link button
  */
-import { useState, useEffect } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { createQueue, getOrgQueues, type OrgQueueSummary } from '../../api/queues'
 import {
@@ -21,8 +21,6 @@ import type { ApiError } from '../../types/api'
 import { clearToken, getTokenPayload } from '../../utils/authToken'
 import logoImg from '../../assets/nextTurn-logo.png'
 import styles from './AdminDashboardPage.module.css'
-
-// ── Create Queue Form state ────────────────────────────────────────────────────
 
 interface CreateForm {
   name: string
@@ -42,21 +40,32 @@ function toInputTime(time: string): string {
   return time.slice(0, 5)
 }
 
-// ── Component ─────────────────────────────────────────────────────────────────
+function toMinutes(time: string): number {
+  const [h, m] = time.split(':').map(Number)
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return 0
+  return (h * 60) + m
+}
+
+function slotsForRule(rule: AppointmentDayRule): number {
+  if (!rule.isEnabled) return 0
+  const windowMinutes = toMinutes(rule.endTime) - toMinutes(rule.startTime)
+  if (windowMinutes <= 0 || rule.slotDurationMinutes <= 0) return 0
+  return Math.floor(windowMinutes / rule.slotDurationMinutes)
+}
 
 export function AdminDashboardPage() {
-  const navigate     = useNavigate()
+  const navigate = useNavigate()
   const { tenantId } = useParams<{ tenantId: string }>()
-  const payload      = getTokenPayload()
+  const payload = getTokenPayload()
 
-  const [queues,      setQueues]      = useState<OrgQueueSummary[]>([])
-  const [loadError,   setLoadError]   = useState<string | null>(null)
-  const [form,        setForm]        = useState<CreateForm>(defaultForm)
-  const [formErrors,  setFormErrors]  = useState<Partial<CreateForm>>({})
-  const [creating,    setCreating]    = useState(false)
+  const [queues, setQueues] = useState<OrgQueueSummary[]>([])
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [form, setForm] = useState<CreateForm>(defaultForm)
+  const [formErrors, setFormErrors] = useState<Partial<CreateForm>>({})
+  const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
-  const [newLink,     setNewLink]     = useState<string | null>(null)
-  const [copiedId,    setCopiedId]    = useState<string | null>(null)
+  const [newLink, setNewLink] = useState<string | null>(null)
+  const [copiedId, setCopiedId] = useState<string | null>(null)
 
   const [appointmentRules, setAppointmentRules] = useState<AppointmentDayRule[]>([])
   const [appointmentShareLink, setAppointmentShareLink] = useState<string | null>(null)
@@ -65,15 +74,20 @@ export function AdminDashboardPage() {
   const [scheduleError, setScheduleError] = useState<string | null>(null)
   const [scheduleSuccess, setScheduleSuccess] = useState<string | null>(null)
   const [copiedAppointmentLink, setCopiedAppointmentLink] = useState(false)
+  const [activeTab, setActiveTab] = useState<'queues' | 'appointments'>('queues')
 
-  // Redirect if token is invalid (defensive — ProtectedRoute should already catch this)
+  const appointmentSummary = useMemo(() => {
+    const enabledDays = appointmentRules.filter(r => r.isEnabled).length
+    const totalWeeklySlots = appointmentRules.reduce((sum, rule) => sum + slotsForRule(rule), 0)
+    return { enabledDays, totalWeeklySlots }
+  }, [appointmentRules])
+
   if (!payload) {
     clearToken()
     navigate('/', { replace: true })
     return null
   }
 
-  // ── Load queues on mount ───────────────────────────────────────────────────
   // eslint-disable-next-line react-hooks/rules-of-hooks
   useEffect(() => {
     if (!tenantId) return
@@ -91,8 +105,6 @@ export function AdminDashboardPage() {
       .finally(() => setScheduleLoading(false))
   }, [tenantId])
 
-  // ── Handlers ──────────────────────────────────────────────────────────────
-
   function handleLogout() {
     clearToken()
     navigate('/', { replace: true })
@@ -100,11 +112,13 @@ export function AdminDashboardPage() {
 
   function validate(): boolean {
     const errors: Partial<CreateForm> = {}
-    if (!form.name.trim())                     errors.name = 'Queue name is required.'
-    if (!form.maxCapacity || parseInt(form.maxCapacity) < 1)
+    if (!form.name.trim()) errors.name = 'Queue name is required.'
+    if (!form.maxCapacity || parseInt(form.maxCapacity, 10) < 1) {
       errors.maxCapacity = 'Capacity must be at least 1.'
-    if (!form.averageServiceTimeSeconds || parseInt(form.averageServiceTimeSeconds) < 1)
+    }
+    if (!form.averageServiceTimeSeconds || parseInt(form.averageServiceTimeSeconds, 10) < 1) {
       errors.averageServiceTimeSeconds = 'Service time must be at least 1 second.'
+    }
     setFormErrors(errors)
     return Object.keys(errors).length === 0
   }
@@ -119,20 +133,20 @@ export function AdminDashboardPage() {
 
     try {
       const result = await createQueue(tenantId, {
-        name:                      form.name.trim(),
-        maxCapacity:               parseInt(form.maxCapacity),
-        averageServiceTimeSeconds: parseInt(form.averageServiceTimeSeconds),
+        name: form.name.trim(),
+        maxCapacity: parseInt(form.maxCapacity, 10),
+        averageServiceTimeSeconds: parseInt(form.averageServiceTimeSeconds, 10),
       })
 
-      // Add the new queue to the top of the list
       const newQueue: OrgQueueSummary = {
-        queueId:                  result.queueId,
-        name:                     form.name.trim(),
-        maxCapacity:               parseInt(form.maxCapacity),
-        averageServiceTimeSeconds: parseInt(form.averageServiceTimeSeconds),
-        status:                    'Active',
-        shareableLink:             result.shareableLink,
+        queueId: result.queueId,
+        name: form.name.trim(),
+        maxCapacity: parseInt(form.maxCapacity, 10),
+        averageServiceTimeSeconds: parseInt(form.averageServiceTimeSeconds, 10),
+        status: 'Active',
+        shareableLink: result.shareableLink,
       }
+
       setQueues(prev => [newQueue, ...prev])
       setNewLink(result.shareableLink)
       setForm(defaultForm)
@@ -159,16 +173,17 @@ export function AdminDashboardPage() {
 
   async function copyAppointmentLink() {
     if (!appointmentShareLink) return
-
     await navigator.clipboard.writeText(`${window.location.origin}${appointmentShareLink}`)
     setCopiedAppointmentLink(true)
     setTimeout(() => setCopiedAppointmentLink(false), 2000)
   }
 
   function updateRule(dayOfWeek: number, changes: Partial<AppointmentDayRule>) {
-    setAppointmentRules(prev => prev.map(rule =>
-      rule.dayOfWeek === dayOfWeek ? { ...rule, ...changes } : rule))
+    setAppointmentRules(prev =>
+      prev.map(rule => (rule.dayOfWeek === dayOfWeek ? { ...rule, ...changes } : rule)),
+    )
     setScheduleSuccess(null)
+    setScheduleError(null)
   }
 
   async function saveSchedule() {
@@ -190,239 +205,304 @@ export function AdminDashboardPage() {
     }
   }
 
-  // ── Render ────────────────────────────────────────────────────────────────
-
   return (
     <div className={styles.page}>
-      {/* Top nav */}
       <nav className={styles.topNav}>
-        <div className={styles.navLeft}>
-          <img src={logoImg} alt="NextTurn" className={styles.logo} />
-          <span className={styles.navTitle}>Admin Dashboard</span>
-        </div>
-        <div className={styles.navRight}>
-          <span className={styles.navUser}>{payload.name}</span>
-          <button className={styles.logoutBtn} onClick={handleLogout} type="button">
-            Log out
-          </button>
-        </div>
+        <img src={logoImg} alt="NextTurn" className={styles.logo} />
+        <button className={styles.logoutBtn} onClick={handleLogout} type="button">
+          Logout
+        </button>
       </nav>
 
       <main className={styles.main}>
+        <section className={styles.toolbar}>
+          <div className={styles.toolbarHeader}>
+            <h1 className={styles.pageTitle}>Operations Control Center</h1>
+            <p className={styles.pageSubtitle}>Manage queues and appointment capacity from one place.</p>
+          </div>
+          <div className={styles.tabs} role="tablist" aria-label="Admin sections">
+            <button
+              type="button"
+              className={`${styles.tabBtn} ${activeTab === 'queues' ? styles.tabBtnActive : ''}`}
+              onClick={() => setActiveTab('queues')}
+              role="tab"
+              aria-selected={activeTab === 'queues'}
+            >
+              Queue Management
+            </button>
+            <button
+              type="button"
+              className={`${styles.tabBtn} ${activeTab === 'appointments' ? styles.tabBtnActive : ''}`}
+              onClick={() => setActiveTab('appointments')}
+              role="tab"
+              aria-selected={activeTab === 'appointments'}
+            >
+              Appointment Settings
+            </button>
+          </div>
+        </section>
 
-        {/* ── Create Queue ────────────────────────────────────────── */}
-        <section className={styles.section}>
-          <h2 className={styles.sectionTitle}>Create a New Queue</h2>
+        {activeTab === 'queues' && (
+          <>
+            <section className={styles.section}>
+              <h2 className={styles.sectionTitle}>Create a New Queue</h2>
+              <p className={styles.sectionHint}>Create and share queue links for customers to join in seconds.</p>
 
-          {createError && (
-            <div className={styles.errorBanner} role="alert" data-testid="create-error">
-              {createError}
+              {createError && (
+                <div className={styles.errorBanner} role="alert" data-testid="create-error">
+                  {createError}
+                </div>
+              )}
+
+              {newLink && (
+                <div className={styles.successBanner} role="status" data-testid="new-link-banner">
+                  <span>Queue created! Shareable link:</span>
+                  <strong className={styles.linkText}>{window.location.origin}{newLink}</strong>
+                </div>
+              )}
+
+              <form className={styles.createForm} onSubmit={handleCreate} noValidate>
+                <div className={styles.formGrid}>
+                  <div className={styles.formGroup}>
+                    <label className={styles.label} htmlFor="queue-name">Queue Name</label>
+                    <input
+                      id="queue-name"
+                      className={`${styles.input} ${formErrors.name ? styles.inputError : ''}`}
+                      type="text"
+                      placeholder="e.g. General Counter"
+                      value={form.name}
+                      onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                    />
+                    {formErrors.name && (
+                      <span className={styles.fieldError}>{formErrors.name}</span>
+                    )}
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label className={styles.label} htmlFor="queue-capacity">Max Capacity</label>
+                    <input
+                      id="queue-capacity"
+                      className={`${styles.input} ${formErrors.maxCapacity ? styles.inputError : ''}`}
+                      type="number"
+                      min={1}
+                      value={form.maxCapacity}
+                      onChange={e => setForm(f => ({ ...f, maxCapacity: e.target.value }))}
+                    />
+                    {formErrors.maxCapacity && (
+                      <span className={styles.fieldError}>{formErrors.maxCapacity}</span>
+                    )}
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label className={styles.label} htmlFor="queue-avg-time">
+                      Avg. Service Time (seconds)
+                    </label>
+                    <input
+                      id="queue-avg-time"
+                      className={`${styles.input} ${formErrors.averageServiceTimeSeconds ? styles.inputError : ''}`}
+                      type="number"
+                      min={1}
+                      value={form.averageServiceTimeSeconds}
+                      onChange={e => setForm(f => ({ ...f, averageServiceTimeSeconds: e.target.value }))}
+                    />
+                    {formErrors.averageServiceTimeSeconds && (
+                      <span className={styles.fieldError}>{formErrors.averageServiceTimeSeconds}</span>
+                    )}
+                  </div>
+                </div>
+
+                <button
+                  className={styles.createBtn}
+                  type="submit"
+                  disabled={creating}
+                  data-testid="create-queue-btn"
+                >
+                  {creating ? 'Creating…' : 'Create Queue'}
+                </button>
+              </form>
+            </section>
+
+            <section className={styles.section}>
+              <h2 className={styles.sectionTitle}>Your Queues</h2>
+              <p className={styles.sectionHint}>Copy and share queue links with customers.</p>
+
+              {loadError && (
+                <div className={styles.errorBanner} role="alert">{loadError}</div>
+              )}
+
+              {queues.length === 0 && !loadError && (
+                <p className={styles.emptyNote}>
+                  No queues yet. Create your first queue above and share the link with users.
+                </p>
+              )}
+
+              {queues.length > 0 && (
+                <ul className={styles.queueList} data-testid="queue-list">
+                  {queues.map(queue => (
+                    <li key={queue.queueId} className={styles.queueCard} data-testid="queue-card">
+                      <div className={styles.queueCardLeft}>
+                        <span className={styles.queueName}>{queue.name}</span>
+                        <span className={styles.queueMeta}>
+                          Capacity: {queue.maxCapacity} &middot; Avg. {queue.averageServiceTimeSeconds}s &middot;{' '}
+                          <span
+                            className={
+                              queue.status === 'Active'
+                                ? styles.statusActive
+                                : styles.statusInactive
+                            }
+                          >
+                            {queue.status}
+                          </span>
+                        </span>
+                        <span className={styles.queueLink}>
+                          {window.location.origin}{queue.shareableLink}
+                        </span>
+                      </div>
+                      <button
+                        className={styles.copyBtn}
+                        type="button"
+                        onClick={() => copyLink(queue)}
+                        data-testid={`copy-btn-${queue.queueId}`}
+                      >
+                        {copiedId === queue.queueId ? '✓ Copied!' : 'Copy Link'}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          </>
+        )}
+
+        {activeTab === 'appointments' && (
+          <section className={styles.section}>
+            <h2 className={styles.sectionTitle}>Appointment Booking Settings</h2>
+            <p className={styles.sectionHint}>
+              Set daily operating windows and appointment duration. We calculate how many appointments can be offered each day.
+            </p>
+
+            <div className={styles.statsRow}>
+              <article className={styles.statCard}>
+                <span className={styles.statLabel}>Enabled days</span>
+                <strong className={styles.statValue}>{appointmentSummary.enabledDays}/7</strong>
+              </article>
+              <article className={styles.statCard}>
+                <span className={styles.statLabel}>Total weekly capacity</span>
+                <strong className={styles.statValue}>{appointmentSummary.totalWeeklySlots}</strong>
+                <span className={styles.statHint}>appointments/week</span>
+              </article>
             </div>
-          )}
 
-          {newLink && (
-            <div className={styles.successBanner} role="status" data-testid="new-link-banner">
-              <span>Queue created! Shareable link:</span>
-              <strong className={styles.linkText}>{window.location.origin}{newLink}</strong>
-            </div>
-          )}
+            {scheduleError && (
+              <div className={styles.errorBanner} role="alert">{scheduleError}</div>
+            )}
 
-          <form className={styles.createForm} onSubmit={handleCreate} noValidate>
-            <div className={styles.formGrid}>
-              <div className={styles.formGroup}>
-                <label className={styles.label} htmlFor="queue-name">Queue Name</label>
-                <input
-                  id="queue-name"
-                  className={`${styles.input} ${formErrors.name ? styles.inputError : ''}`}
-                  type="text"
-                  placeholder="e.g. General Counter"
-                  value={form.name}
-                  onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                />
-                {formErrors.name && (
-                  <span className={styles.fieldError}>{formErrors.name}</span>
-                )}
+            {scheduleSuccess && (
+              <div className={styles.successBanner} role="status">{scheduleSuccess}</div>
+            )}
+
+            {appointmentShareLink && (
+              <div className={styles.successBanner} role="status">
+                <span>Shareable appointment link:</span>
+                <strong className={styles.linkText}>{window.location.origin}{appointmentShareLink}</strong>
+                <button className={styles.copyBtn} type="button" onClick={copyAppointmentLink}>
+                  {copiedAppointmentLink ? '✓ Copied!' : 'Copy Link'}
+                </button>
               </div>
+            )}
 
-              <div className={styles.formGroup}>
-                <label className={styles.label} htmlFor="queue-capacity">Max Capacity</label>
-                <input
-                  id="queue-capacity"
-                  className={`${styles.input} ${formErrors.maxCapacity ? styles.inputError : ''}`}
-                  type="number"
-                  min={1}
-                  value={form.maxCapacity}
-                  onChange={e => setForm(f => ({ ...f, maxCapacity: e.target.value }))}
-                />
-                {formErrors.maxCapacity && (
-                  <span className={styles.fieldError}>{formErrors.maxCapacity}</span>
-                )}
-              </div>
+            {scheduleLoading && <p className={styles.emptyNote}>Loading schedule...</p>}
 
-              <div className={styles.formGroup}>
-                <label className={styles.label} htmlFor="queue-avg-time">
-                  Avg. Service Time (seconds)
-                </label>
-                <input
-                  id="queue-avg-time"
-                  className={`${styles.input} ${formErrors.averageServiceTimeSeconds ? styles.inputError : ''}`}
-                  type="number"
-                  min={1}
-                  value={form.averageServiceTimeSeconds}
-                  onChange={e => setForm(f => ({ ...f, averageServiceTimeSeconds: e.target.value }))}
-                />
-                {formErrors.averageServiceTimeSeconds && (
-                  <span className={styles.fieldError}>{formErrors.averageServiceTimeSeconds}</span>
-                )}
+            {!scheduleLoading && appointmentRules.length > 0 && (
+              <div className={styles.scheduleList}>
+                {appointmentRules
+                  .slice()
+                  .sort((a, b) => a.dayOfWeek - b.dayOfWeek)
+                  .map(rule => {
+                    const daySlots = slotsForRule(rule)
+                    return (
+                      <article
+                        key={rule.dayOfWeek}
+                        className={`${styles.scheduleCard} ${rule.isEnabled ? styles.scheduleCardEnabled : styles.scheduleCardDisabled}`}
+                      >
+                        <header className={styles.scheduleCardHeader}>
+                          <div>
+                            <h3 className={styles.scheduleDay}>{dayLabels[rule.dayOfWeek]}</h3>
+                            <p className={styles.scheduleSummary}>
+                              {rule.isEnabled
+                                ? `${toInputTime(rule.startTime)} - ${toInputTime(rule.endTime)} · every ${rule.slotDurationMinutes} min`
+                                : 'Closed'}
+                            </p>
+                          </div>
+                          <span className={styles.capacityPill}>{daySlots} slots</span>
+                        </header>
+
+                        <div className={styles.scheduleGrid}>
+                          <label className={styles.checkboxLabel}>
+                            <input
+                              type="checkbox"
+                              checked={rule.isEnabled}
+                              onChange={e => updateRule(rule.dayOfWeek, { isEnabled: e.target.checked })}
+                            />
+                            <span>Open for appointments</span>
+                          </label>
+
+                          <div className={styles.formGroup}>
+                            <label className={styles.label}>Start time</label>
+                            <input
+                              className={styles.input}
+                              type="time"
+                              value={toInputTime(rule.startTime)}
+                              disabled={!rule.isEnabled}
+                              onChange={e => updateRule(rule.dayOfWeek, { startTime: `${e.target.value}:00` })}
+                            />
+                          </div>
+
+                          <div className={styles.formGroup}>
+                            <label className={styles.label}>End time</label>
+                            <input
+                              className={styles.input}
+                              type="time"
+                              value={toInputTime(rule.endTime)}
+                              disabled={!rule.isEnabled}
+                              onChange={e => updateRule(rule.dayOfWeek, { endTime: `${e.target.value}:00` })}
+                            />
+                          </div>
+
+                          <div className={styles.formGroup}>
+                            <label className={styles.label}>Duration per appointment (mins)</label>
+                            <input
+                              className={styles.input}
+                              type="number"
+                              min={5}
+                              max={240}
+                              value={rule.slotDurationMinutes}
+                              disabled={!rule.isEnabled}
+                              onChange={e => {
+                                const parsed = Number.parseInt(e.target.value || '30', 10)
+                                updateRule(rule.dayOfWeek, {
+                                  slotDurationMinutes: Number.isNaN(parsed) ? 30 : parsed,
+                                })
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </article>
+                    )
+                  })}
               </div>
-            </div>
+            )}
 
             <button
               className={styles.createBtn}
-              type="submit"
-              disabled={creating}
-              data-testid="create-queue-btn"
+              type="button"
+              onClick={saveSchedule}
+              disabled={scheduleSaving || scheduleLoading || appointmentRules.length !== 7}
             >
-              {creating ? 'Creating…' : 'Create Queue'}
+              {scheduleSaving ? 'Saving…' : 'Save Appointment Settings'}
             </button>
-          </form>
-        </section>
-
-        {/* ── Queue List ──────────────────────────────────────────── */}
-        <section className={styles.section}>
-          <h2 className={styles.sectionTitle}>Your Queues</h2>
-
-          {loadError && (
-            <div className={styles.errorBanner} role="alert">{loadError}</div>
-          )}
-
-          {queues.length === 0 && !loadError && (
-            <p className={styles.emptyNote}>
-              No queues yet. Create your first queue above and share the link with users.
-            </p>
-          )}
-
-          {queues.length > 0 && (
-            <ul className={styles.queueList} data-testid="queue-list">
-              {queues.map(queue => (
-                <li key={queue.queueId} className={styles.queueCard} data-testid="queue-card">
-                  <div className={styles.queueCardLeft}>
-                    <span className={styles.queueName}>{queue.name}</span>
-                    <span className={styles.queueMeta}>
-                      Capacity: {queue.maxCapacity} &middot;{' '}
-                      Avg. {queue.averageServiceTimeSeconds}s &middot;{' '}
-                      <span
-                        className={
-                          queue.status === 'Active'
-                            ? styles.statusActive
-                            : styles.statusInactive
-                        }
-                      >
-                        {queue.status}
-                      </span>
-                    </span>
-                    <span className={styles.queueLink}>
-                      {window.location.origin}{queue.shareableLink}
-                    </span>
-                  </div>
-                  <button
-                    className={styles.copyBtn}
-                    type="button"
-                    onClick={() => copyLink(queue)}
-                    data-testid={`copy-btn-${queue.queueId}`}
-                  >
-                    {copiedId === queue.queueId ? '✓ Copied!' : 'Copy Link'}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-
-        <section className={styles.section}>
-          <h2 className={styles.sectionTitle}>Appointment Booking Settings</h2>
-
-          {scheduleError && (
-            <div className={styles.errorBanner} role="alert">{scheduleError}</div>
-          )}
-
-          {scheduleSuccess && (
-            <div className={styles.successBanner} role="status">{scheduleSuccess}</div>
-          )}
-
-          {appointmentShareLink && (
-            <div className={styles.successBanner} role="status">
-              <span>Shareable appointment link:</span>
-              <strong className={styles.linkText}>{window.location.origin}{appointmentShareLink}</strong>
-              <button className={styles.copyBtn} type="button" onClick={copyAppointmentLink}>
-                {copiedAppointmentLink ? '✓ Copied!' : 'Copy Link'}
-              </button>
-            </div>
-          )}
-
-          {scheduleLoading && <p className={styles.emptyNote}>Loading schedule...</p>}
-
-          {!scheduleLoading && appointmentRules.length > 0 && (
-            <div className={styles.queueList}>
-              {appointmentRules
-                .slice()
-                .sort((a, b) => a.dayOfWeek - b.dayOfWeek)
-                .map(rule => (
-                  <div key={rule.dayOfWeek} className={styles.queueCard}>
-                    <div className={styles.queueCardLeft}>
-                      <span className={styles.queueName}>{dayLabels[rule.dayOfWeek]}</span>
-                    </div>
-                    <div className={styles.formGrid}>
-                      <label className={styles.label}>
-                        <input
-                          type="checkbox"
-                          checked={rule.isEnabled}
-                          onChange={e => updateRule(rule.dayOfWeek, { isEnabled: e.target.checked })}
-                        />{' '}
-                        Enabled
-                      </label>
-
-                      <input
-                        className={styles.input}
-                        type="time"
-                        value={toInputTime(rule.startTime)}
-                        disabled={!rule.isEnabled}
-                        onChange={e => updateRule(rule.dayOfWeek, { startTime: `${e.target.value}:00` })}
-                      />
-
-                      <input
-                        className={styles.input}
-                        type="time"
-                        value={toInputTime(rule.endTime)}
-                        disabled={!rule.isEnabled}
-                        onChange={e => updateRule(rule.dayOfWeek, { endTime: `${e.target.value}:00` })}
-                      />
-
-                      <input
-                        className={styles.input}
-                        type="number"
-                        min={5}
-                        max={240}
-                        value={rule.slotDurationMinutes}
-                        disabled={!rule.isEnabled}
-                        onChange={e => updateRule(rule.dayOfWeek, { slotDurationMinutes: parseInt(e.target.value || '30') })}
-                      />
-                    </div>
-                  </div>
-                ))}
-            </div>
-          )}
-
-          <button
-            className={styles.createBtn}
-            type="button"
-            onClick={saveSchedule}
-            disabled={scheduleSaving || scheduleLoading || appointmentRules.length !== 7}
-          >
-            {scheduleSaving ? 'Saving…' : 'Save Appointment Settings'}
-          </button>
-        </section>
-
+          </section>
+        )}
       </main>
     </div>
   )
