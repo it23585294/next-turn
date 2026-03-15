@@ -14,6 +14,7 @@ public class Appointment
     public DateTimeOffset SlotStart { get; private set; }
     public DateTimeOffset SlotEnd { get; private set; }
     public AppointmentStatus Status { get; private set; }
+    public bool LateCancellation { get; private set; }
 
     protected Appointment()
     {
@@ -25,7 +26,8 @@ public class Appointment
         Guid userId,
         DateTimeOffset slotStart,
         DateTimeOffset slotEnd,
-        AppointmentStatus status)
+        AppointmentStatus status,
+        bool lateCancellation)
     {
         Id = id;
         OrganisationId = organisationId;
@@ -33,6 +35,7 @@ public class Appointment
         SlotStart = slotStart;
         SlotEnd = slotEnd;
         Status = status;
+        LateCancellation = lateCancellation;
     }
 
     public static Appointment Create(
@@ -56,7 +59,8 @@ public class Appointment
             userId: userId,
             slotStart: slotStart,
             slotEnd: slotEnd,
-            status: AppointmentStatus.Confirmed);
+            status: AppointmentStatus.Confirmed,
+            lateCancellation: false);
     }
 
     public bool Overlaps(DateTimeOffset slotStart, DateTimeOffset slotEnd)
@@ -66,8 +70,19 @@ public class Appointment
 
     public void Cancel()
     {
+        var now = DateTimeOffset.UtcNow;
+
         if (Status == AppointmentStatus.Cancelled)
-            return;
+            throw new DomainException("Appointment is already cancelled.");
+
+        if (SlotStart <= now)
+            throw new DomainException("Past appointments cannot be cancelled.");
+
+        if (Status != AppointmentStatus.Confirmed && Status != AppointmentStatus.Pending)
+            throw new DomainException("Only active appointments can be cancelled.");
+
+        // Cancellation inside 24 hours is allowed, but flagged for reporting.
+        LateCancellation = SlotStart <= now.AddHours(24);
 
         Status = AppointmentStatus.Cancelled;
     }
