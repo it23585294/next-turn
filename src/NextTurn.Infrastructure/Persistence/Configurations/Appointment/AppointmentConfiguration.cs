@@ -34,6 +34,10 @@ public sealed class AppointmentConfiguration : IEntityTypeConfiguration<Appointm
             .HasConversion<string>()
             .HasDefaultValue(AppointmentStatus.Confirmed);
 
+        builder.Property(a => a.LateCancellation)
+            .IsRequired()
+            .HasDefaultValue(false);
+
         builder.HasIndex(a => new { a.OrganisationId, a.SlotStart })
             .HasDatabaseName("IX_Appointments_OrganisationId_SlotStart");
 
