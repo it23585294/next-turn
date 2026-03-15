@@ -23,15 +23,21 @@ public sealed class GetAvailableSlotsQueryHandler : IRequestHandler<GetAvailable
     {
         var rules = await _appointmentRepository.GetScheduleRulesAsync(
             request.OrganisationId,
+            request.AppointmentProfileId,
             cancellationToken)
             ?? Array.Empty<AppointmentScheduleRule>();
 
         var booked = await _appointmentRepository.GetByOrganisationAndDateAsync(
             request.OrganisationId,
+            request.AppointmentProfileId,
             request.Date,
             cancellationToken);
 
-        var configuredRule = ResolveRuleForDate(rules, request.OrganisationId, request.Date.DayOfWeek);
+        var configuredRule = ResolveRuleForDate(
+            rules,
+            request.OrganisationId,
+            request.AppointmentProfileId,
+            request.Date.DayOfWeek);
         if (!configuredRule.IsEnabled)
             return Array.Empty<AvailableSlot>();
 
@@ -56,6 +62,7 @@ public sealed class GetAvailableSlotsQueryHandler : IRequestHandler<GetAvailable
     private static AppointmentScheduleRule ResolveRuleForDate(
         IReadOnlyList<AppointmentScheduleRule> rules,
         Guid organisationId,
+        Guid appointmentProfileId,
         DayOfWeek dayOfWeek)
     {
         int day = (int)dayOfWeek;
@@ -68,6 +75,7 @@ public sealed class GetAvailableSlotsQueryHandler : IRequestHandler<GetAvailable
 
         return AppointmentScheduleRule.Create(
             organisationId,
+            appointmentProfileId,
             day,
             enabled,
             DefaultDayStart,

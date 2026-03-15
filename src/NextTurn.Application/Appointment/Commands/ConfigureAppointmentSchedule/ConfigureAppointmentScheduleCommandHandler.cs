@@ -26,6 +26,7 @@ public sealed class ConfigureAppointmentScheduleCommandHandler
         var rules = request.DayRules
             .Select(r => AppointmentScheduleRule.Create(
                 request.OrganisationId,
+                request.AppointmentProfileId,
                 r.DayOfWeek,
                 r.IsEnabled,
                 r.StartTime,
@@ -35,12 +36,13 @@ public sealed class ConfigureAppointmentScheduleCommandHandler
 
         await _appointmentRepository.UpsertScheduleRulesAsync(
             request.OrganisationId,
+            request.AppointmentProfileId,
             rules,
             cancellationToken);
 
         await _context.SaveChangesAsync(cancellationToken);
 
         return new ConfigureAppointmentScheduleResult(
-            ShareableLink: $"/appointments/{request.OrganisationId}");
+            ShareableLink: $"/appointments/{request.OrganisationId}/{request.AppointmentProfileId}");
     }
 }

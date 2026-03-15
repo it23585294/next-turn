@@ -7,6 +7,7 @@ namespace NextTurn.Application.Appointment.Commands.BookAppointment;
 /// </summary>
 public sealed record BookAppointmentCommand(
     Guid OrganisationId,
+    Guid AppointmentProfileId,
     Guid UserId,
     DateTimeOffset SlotStart,
     DateTimeOffset SlotEnd) : IRequest<BookAppointmentResult>;

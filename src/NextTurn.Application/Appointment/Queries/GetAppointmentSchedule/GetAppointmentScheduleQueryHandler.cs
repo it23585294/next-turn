@@ -24,6 +24,7 @@ public sealed class GetAppointmentScheduleQueryHandler
     {
         var configured = await _appointmentRepository.GetScheduleRulesAsync(
             request.OrganisationId,
+            request.AppointmentProfileId,
             cancellationToken);
 
         var dayRules = Enumerable.Range(0, 7)
@@ -51,7 +52,7 @@ public sealed class GetAppointmentScheduleQueryHandler
             .ToList();
 
         return new GetAppointmentScheduleResult(
-            ShareableLink: $"/appointments/{request.OrganisationId}",
+            ShareableLink: $"/appointments/{request.OrganisationId}/{request.AppointmentProfileId}",
             DayRules: dayRules);
     }
 }

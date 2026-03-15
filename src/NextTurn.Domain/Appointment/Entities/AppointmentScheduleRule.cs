@@ -10,6 +10,7 @@ public sealed class AppointmentScheduleRule
 {
     public Guid Id { get; }
     public Guid OrganisationId { get; private set; }
+    public Guid AppointmentProfileId { get; private set; }
     public int DayOfWeek { get; private set; }
     public bool IsEnabled { get; private set; }
     public TimeOnly StartTime { get; private set; }
@@ -23,6 +24,7 @@ public sealed class AppointmentScheduleRule
     private AppointmentScheduleRule(
         Guid id,
         Guid organisationId,
+        Guid appointmentProfileId,
         int dayOfWeek,
         bool isEnabled,
         TimeOnly startTime,
@@ -31,6 +33,7 @@ public sealed class AppointmentScheduleRule
     {
         Id = id;
         OrganisationId = organisationId;
+        AppointmentProfileId = appointmentProfileId;
         DayOfWeek = dayOfWeek;
         IsEnabled = isEnabled;
         StartTime = startTime;
@@ -40,17 +43,19 @@ public sealed class AppointmentScheduleRule
 
     public static AppointmentScheduleRule Create(
         Guid organisationId,
+        Guid appointmentProfileId,
         int dayOfWeek,
         bool isEnabled,
         TimeOnly startTime,
         TimeOnly endTime,
         int slotDurationMinutes)
     {
-        Validate(organisationId, dayOfWeek, isEnabled, startTime, endTime, slotDurationMinutes);
+        Validate(organisationId, appointmentProfileId, dayOfWeek, isEnabled, startTime, endTime, slotDurationMinutes);
 
         return new AppointmentScheduleRule(
             Guid.NewGuid(),
             organisationId,
+            appointmentProfileId,
             dayOfWeek,
             isEnabled,
             startTime,
@@ -64,7 +69,7 @@ public sealed class AppointmentScheduleRule
         TimeOnly endTime,
         int slotDurationMinutes)
     {
-        Validate(OrganisationId, DayOfWeek, isEnabled, startTime, endTime, slotDurationMinutes);
+        Validate(OrganisationId, AppointmentProfileId, DayOfWeek, isEnabled, startTime, endTime, slotDurationMinutes);
 
         IsEnabled = isEnabled;
         StartTime = startTime;
@@ -74,6 +79,7 @@ public sealed class AppointmentScheduleRule
 
     private static void Validate(
         Guid organisationId,
+        Guid appointmentProfileId,
         int dayOfWeek,
         bool isEnabled,
         TimeOnly startTime,
@@ -82,6 +88,9 @@ public sealed class AppointmentScheduleRule
     {
         if (organisationId == Guid.Empty)
             throw new DomainException("Organisation ID is required.");
+
+        if (appointmentProfileId == Guid.Empty)
+            throw new DomainException("Appointment profile ID is required.");
 
         if (dayOfWeek < 0 || dayOfWeek > 6)
             throw new DomainException("DayOfWeek must be between 0 (Sunday) and 6 (Saturday).");

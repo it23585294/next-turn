@@ -57,7 +57,7 @@ function formatSlotRange(slotStart: string, slotEnd: string): string {
 }
 
 export function AppointmentPage() {
-  const { tenantId } = useParams<{ tenantId?: string }>()
+  const { tenantId, appointmentProfileId: routeAppointmentProfileId } = useParams<{ tenantId?: string; appointmentProfileId?: string }>()
   const navigate = useNavigate()
 
   const tokenPayload = getTokenPayload()
@@ -69,6 +69,7 @@ export function AppointmentPage() {
   }, [tenantId, tokenPayload?.tid])
 
   const [organisationId, setOrganisationId] = useState(initialOrganisationId)
+  const [appointmentProfileId, setAppointmentProfileId] = useState(routeAppointmentProfileId ?? '')
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
   const [slots, setSlots] = useState<AvailableAppointmentSlot[]>([])
   const [slotsLoading, setSlotsLoading] = useState(false)
@@ -80,7 +81,7 @@ export function AppointmentPage() {
   const [isCancelling, setIsCancelling] = useState(false)
 
   useEffect(() => {
-    if (!isGuid(organisationId)) {
+    if (!isGuid(organisationId) || !isGuid(appointmentProfileId)) {
       setSlots([])
       setSelectedSlot(null)
       return
@@ -91,7 +92,7 @@ export function AppointmentPage() {
     setSlotsError(null)
     setSelectedSlot(null)
 
-    getAvailableAppointmentSlots(organisationId, date)
+    getAvailableAppointmentSlots(organisationId, appointmentProfileId, date)
       .then(data => {
         setSlots(data)
       })
@@ -101,7 +102,7 @@ export function AppointmentPage() {
       .finally(() => {
         setSlotsLoading(false)
       })
-  }, [organisationId, selectedDate])
+  }, [organisationId, appointmentProfileId, selectedDate])
 
   function handleBack() {
     const role = tokenPayload?.role
@@ -119,7 +120,7 @@ export function AppointmentPage() {
   }
 
   async function handleConfirmBooking() {
-    if (!selectedSlot || selectedSlot.isBooked || !isGuid(organisationId)) return
+    if (!selectedSlot || selectedSlot.isBooked || !isGuid(organisationId) || !isGuid(appointmentProfileId)) return
 
     setBooking({ status: 'booking' })
 
@@ -149,6 +150,7 @@ export function AppointmentPage() {
       } else {
         const result = await bookAppointment({
           organisationId,
+          appointmentProfileId,
           slotStart: selectedSlot.slotStart,
           slotEnd: selectedSlot.slotEnd,
         })
@@ -229,6 +231,7 @@ export function AppointmentPage() {
   }
 
   const hasValidOrg = isGuid(organisationId)
+  const hasValidProfile = isGuid(appointmentProfileId)
   const isRescheduleMode = currentAppointment !== null
 
   return (
@@ -265,8 +268,27 @@ export function AppointmentPage() {
             placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
           />
 
+          <label htmlFor="appointmentProfileId" className={styles.label}>Appointment Profile ID</label>
+          <input
+            id="appointmentProfileId"
+            className={styles.input}
+            value={appointmentProfileId}
+            onChange={e => {
+              setAppointmentProfileId(e.target.value)
+              setCurrentAppointment(null)
+              setSelectedSlot(null)
+              setShowCancelModal(false)
+              setBooking({ status: 'idle' })
+            }}
+            placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+          />
+
           {!hasValidOrg && organisationId.trim().length > 0 && (
             <p className={styles.validation}>Enter a valid organisation ID to load slots.</p>
+          )}
+
+          {!hasValidProfile && appointmentProfileId.trim().length > 0 && (
+            <p className={styles.validation}>Enter a valid appointment profile ID to load slots.</p>
           )}
 
           <div className={styles.calendarWrap}>
@@ -318,11 +340,11 @@ export function AppointmentPage() {
             <div className={`${styles.stateCard} ${styles.errorCard}`}>{slotsError}</div>
           )}
 
-          {!slotsLoading && !slotsError && !hasValidOrg && (
-            <div className={styles.stateCard}>Enter an organisation ID to view slots.</div>
+          {!slotsLoading && !slotsError && (!hasValidOrg || !hasValidProfile) && (
+            <div className={styles.stateCard}>Enter valid organisation and appointment profile IDs to view slots.</div>
           )}
 
-          {!slotsLoading && !slotsError && hasValidOrg && slots.length === 0 && (
+          {!slotsLoading && !slotsError && hasValidOrg && hasValidProfile && slots.length === 0 && (
             <div className={styles.stateCard}>No slots available for this date.</div>
           )}
 

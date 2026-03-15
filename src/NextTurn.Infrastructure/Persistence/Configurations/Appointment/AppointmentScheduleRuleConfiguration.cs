@@ -18,6 +18,9 @@ public sealed class AppointmentScheduleRuleConfiguration : IEntityTypeConfigurat
         builder.Property(r => r.OrganisationId)
             .IsRequired();
 
+        builder.Property(r => r.AppointmentProfileId)
+            .IsRequired();
+
         builder.Property(r => r.DayOfWeek)
             .IsRequired();
 
@@ -33,8 +36,8 @@ public sealed class AppointmentScheduleRuleConfiguration : IEntityTypeConfigurat
         builder.Property(r => r.SlotDurationMinutes)
             .IsRequired();
 
-        builder.HasIndex(r => new { r.OrganisationId, r.DayOfWeek })
-            .HasDatabaseName("UX_AppointmentScheduleRules_OrganisationId_DayOfWeek")
+        builder.HasIndex(r => new { r.OrganisationId, r.AppointmentProfileId, r.DayOfWeek })
+            .HasDatabaseName("UX_AppointmentScheduleRules_OrganisationId_ProfileId_DayOfWeek")
             .IsUnique();
     }
 }

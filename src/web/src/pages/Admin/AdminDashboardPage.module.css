@@ -267,6 +267,10 @@
   color: var(--color-text-muted);
 }
 
+.profileSelectGroup {
+  margin-bottom: 10px;
+}
+
 .statsRow {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));

@@ -11,22 +11,23 @@ public sealed class GetAvailableSlotsQueryHandlerTests
     private readonly Mock<IAppointmentRepository> _appointmentRepositoryMock = new();
 
     private static readonly Guid OrganisationId = Guid.NewGuid();
+    private static readonly Guid AppointmentProfileId = Guid.NewGuid();
     private static readonly DateOnly Date = new(2026, 4, 10);
 
     [Fact]
     public async Task Handle_WhenNoAppointments_ReturnsAllSlots()
     {
         _appointmentRepositoryMock
-            .Setup(r => r.GetScheduleRulesAsync(OrganisationId, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetScheduleRulesAsync(OrganisationId, AppointmentProfileId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(Array.Empty<NextTurn.Domain.Appointment.Entities.AppointmentScheduleRule>());
 
         _appointmentRepositoryMock
-            .Setup(r => r.GetByOrganisationAndDateAsync(OrganisationId, Date, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByOrganisationAndDateAsync(OrganisationId, AppointmentProfileId, Date, It.IsAny<CancellationToken>()))
             .ReturnsAsync(Array.Empty<AppointmentEntity>());
 
         var handler = new GetAvailableSlotsQueryHandler(_appointmentRepositoryMock.Object);
 
-        var result = await handler.Handle(new GetAvailableSlotsQuery(OrganisationId, Date), CancellationToken.None);
+        var result = await handler.Handle(new GetAvailableSlotsQuery(OrganisationId, AppointmentProfileId, Date), CancellationToken.None);
 
         result.Should().HaveCount(16);
         result.Should().OnlyContain(s => s.IsBooked == false);
@@ -37,21 +38,22 @@ public sealed class GetAvailableSlotsQueryHandlerTests
     {
         var booked = AppointmentEntity.Create(
             OrganisationId,
+            AppointmentProfileId,
             Guid.NewGuid(),
             new DateTimeOffset(2026, 4, 10, 10, 0, 0, TimeSpan.Zero),
             new DateTimeOffset(2026, 4, 10, 10, 30, 0, TimeSpan.Zero));
 
         _appointmentRepositoryMock
-            .Setup(r => r.GetScheduleRulesAsync(OrganisationId, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetScheduleRulesAsync(OrganisationId, AppointmentProfileId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(Array.Empty<NextTurn.Domain.Appointment.Entities.AppointmentScheduleRule>());
 
         _appointmentRepositoryMock
-            .Setup(r => r.GetByOrganisationAndDateAsync(OrganisationId, Date, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByOrganisationAndDateAsync(OrganisationId, AppointmentProfileId, Date, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new[] { booked });
 
         var handler = new GetAvailableSlotsQueryHandler(_appointmentRepositoryMock.Object);
 
-        var result = await handler.Handle(new GetAvailableSlotsQuery(OrganisationId, Date), CancellationToken.None);
+        var result = await handler.Handle(new GetAvailableSlotsQuery(OrganisationId, AppointmentProfileId, Date), CancellationToken.None);
 
         result.Should().ContainSingle(s =>
             s.SlotStart == new DateTimeOffset(2026, 4, 10, 10, 0, 0, TimeSpan.Zero) &&
@@ -64,21 +66,22 @@ public sealed class GetAvailableSlotsQueryHandlerTests
     {
         var booked = AppointmentEntity.Create(
             OrganisationId,
+            AppointmentProfileId,
             Guid.NewGuid(),
             new DateTimeOffset(2026, 4, 10, 9, 15, 0, TimeSpan.Zero),
             new DateTimeOffset(2026, 4, 10, 9, 45, 0, TimeSpan.Zero));
 
         _appointmentRepositoryMock
-            .Setup(r => r.GetScheduleRulesAsync(OrganisationId, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetScheduleRulesAsync(OrganisationId, AppointmentProfileId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(Array.Empty<NextTurn.Domain.Appointment.Entities.AppointmentScheduleRule>());
 
         _appointmentRepositoryMock
-            .Setup(r => r.GetByOrganisationAndDateAsync(OrganisationId, Date, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByOrganisationAndDateAsync(OrganisationId, AppointmentProfileId, Date, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new[] { booked });
 
         var handler = new GetAvailableSlotsQueryHandler(_appointmentRepositoryMock.Object);
 
-        var result = await handler.Handle(new GetAvailableSlotsQuery(OrganisationId, Date), CancellationToken.None);
+        var result = await handler.Handle(new GetAvailableSlotsQuery(OrganisationId, AppointmentProfileId, Date), CancellationToken.None);
 
         result.Should().ContainSingle(s =>
             s.SlotStart == new DateTimeOffset(2026, 4, 10, 9, 0, 0, TimeSpan.Zero) &&
@@ -86,7 +89,7 @@ public sealed class GetAvailableSlotsQueryHandlerTests
             s.IsBooked);
 
         result.Should().ContainSingle(s =>
-            s.SlotStart == new DateTimeOffset(2026, 4, 10, 9, 30, 0, TimeSpan.Zero) &&
+            s.SlotStart == new DateTimeOffset(2026, 4, 10, 9, 30, 0, 0, TimeSpan.Zero) &&
             s.SlotEnd == new DateTimeOffset(2026, 4, 10, 10, 0, 0, TimeSpan.Zero) &&
             s.IsBooked);
     }

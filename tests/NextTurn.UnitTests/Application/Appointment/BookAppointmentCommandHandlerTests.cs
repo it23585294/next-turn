@@ -17,6 +17,7 @@ public sealed class BookAppointmentCommandHandlerTests
     private readonly BookAppointmentCommandHandler _handler;
 
     private static readonly Guid OrganisationId = Guid.NewGuid();
+    private static readonly Guid AppointmentProfileId = Guid.NewGuid();
     private static readonly Guid UserId = Guid.NewGuid();
     private static readonly DateTimeOffset SlotStart = new(2026, 4, 2, 10, 0, 0, TimeSpan.Zero);
     private static readonly DateTimeOffset SlotEnd = new(2026, 4, 2, 10, 30, 0, TimeSpan.Zero);
@@ -24,7 +25,7 @@ public sealed class BookAppointmentCommandHandlerTests
     public BookAppointmentCommandHandlerTests()
     {
         _appointmentRepositoryMock
-            .Setup(r => r.HasOverlapAsync(OrganisationId, SlotStart, SlotEnd, It.IsAny<CancellationToken>()))
+            .Setup(r => r.HasOverlapAsync(OrganisationId, AppointmentProfileId, SlotStart, SlotEnd, It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
 
         _appointmentRepositoryMock
@@ -55,6 +56,7 @@ public sealed class BookAppointmentCommandHandlerTests
             r => r.AddAsync(
                 It.Is<AppointmentEntity>(a =>
                     a.OrganisationId == OrganisationId &&
+                    a.AppointmentProfileId == AppointmentProfileId &&
                     a.UserId == UserId &&
                     a.SlotStart == SlotStart &&
                     a.SlotEnd == SlotEnd),
@@ -68,7 +70,7 @@ public sealed class BookAppointmentCommandHandlerTests
     public async Task Handle_WhenSlotOverlaps_ThrowsConflictDomainException()
     {
         _appointmentRepositoryMock
-            .Setup(r => r.HasOverlapAsync(OrganisationId, SlotStart, SlotEnd, It.IsAny<CancellationToken>()))
+            .Setup(r => r.HasOverlapAsync(OrganisationId, AppointmentProfileId, SlotStart, SlotEnd, It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
 
         var act = async () => await _handler.Handle(ValidCommand(), CancellationToken.None);
@@ -85,7 +87,7 @@ public sealed class BookAppointmentCommandHandlerTests
     {
         var dbUpdateException = new DbUpdateException(
             "Write failed",
-            new Exception("Violation of unique index UX_Appointments_OrganisationId_SlotStart_SlotEnd_Active"));
+            new Exception("Violation of unique index UX_Appointments_OrganisationId_ProfileId_SlotStart_SlotEnd_Active"));
 
         _contextMock
             .Setup(c => c.SaveChangesAsync(It.IsAny<CancellationToken>()))
@@ -114,5 +116,5 @@ public sealed class BookAppointmentCommandHandlerTests
     }
 
     private static BookAppointmentCommand ValidCommand() =>
-        new(OrganisationId, UserId, SlotStart, SlotEnd);
+        new(OrganisationId, AppointmentProfileId, UserId, SlotStart, SlotEnd);
 }

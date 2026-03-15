@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using NextTurn.Application.Common.Interfaces;
 using AppointmentEntity  = NextTurn.Domain.Appointment.Entities.Appointment;
+using AppointmentProfile = NextTurn.Domain.Appointment.Entities.AppointmentProfile;
 using AppointmentScheduleRule = NextTurn.Domain.Appointment.Entities.AppointmentScheduleRule;
 using NextTurn.Domain.Auth.Entities;
 using NextTurn.Infrastructure.Persistence.Configurations.Auth;
@@ -42,6 +43,7 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
 
     // Appointment module (NT-19).
     public DbSet<AppointmentEntity> Appointments => Set<AppointmentEntity>();
+    public DbSet<AppointmentProfile> AppointmentProfiles => Set<AppointmentProfile>();
     public DbSet<AppointmentScheduleRule> AppointmentScheduleRules => Set<AppointmentScheduleRule>();
 
     // ── Model configuration ───────────────────────────────────────────────────
@@ -83,6 +85,9 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
         // Appointments: scoped by organisation (tenant).
         modelBuilder.Entity<AppointmentEntity>()
             .HasQueryFilter(a => a.OrganisationId == _tenantContext.TenantId);
+
+        modelBuilder.Entity<AppointmentProfile>()
+            .HasQueryFilter(p => p.OrganisationId == _tenantContext.TenantId);
 
         modelBuilder.Entity<AppointmentScheduleRule>()
             .HasQueryFilter(r => r.OrganisationId == _tenantContext.TenantId);

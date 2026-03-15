@@ -91,15 +91,15 @@ export function DashboardPage() {
   function handleOpenAppointmentByLink() {
     setAppointmentLinkError(null)
     try {
-      // Accept full URLs or just /appointments/:tenantId path.
+      // Accept full URLs or just /appointments/:tenantId/:appointmentProfileId path.
       const url = new URL(appointmentLinkInput.includes('://') ? appointmentLinkInput : `https://x.com${appointmentLinkInput}`)
-      const match = url.pathname.match(/\/appointments\/([^/]+)/)
+      const match = url.pathname.match(/\/appointments\/([^/]+)\/([^/]+)/)
       if (!match) throw new Error('invalid')
 
-      const [, linkTenant] = match
-      navigate(`/appointments/${linkTenant}`)
+      const [, linkTenant, linkProfile] = match
+      navigate(`/appointments/${linkTenant}/${linkProfile}`)
     } catch {
-      setAppointmentLinkError('Invalid appointment link. Paste the full URL or the /appointments/… path.')
+      setAppointmentLinkError('Invalid appointment link. Paste the full URL or the /appointments/tenant/profile path.')
     }
   }
 
@@ -233,7 +233,7 @@ export function DashboardPage() {
               <input
                 className={styles.joinWidgetInput}
                 type="text"
-                placeholder="https://… or /appointments/tenant"
+                placeholder="https://… or /appointments/tenant/profile"
                 value={appointmentLinkInput}
                 onChange={e => { setAppointmentLinkInput(e.target.value); setAppointmentLinkError(null) }}
                 onKeyDown={e => e.key === 'Enter' && handleOpenAppointmentByLink()}

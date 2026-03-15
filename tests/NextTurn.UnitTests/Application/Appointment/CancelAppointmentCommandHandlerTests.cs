@@ -19,12 +19,14 @@ public sealed class CancelAppointmentCommandHandlerTests
 
     private static readonly Guid AppointmentId = Guid.NewGuid();
     private static readonly Guid OrganisationId = Guid.NewGuid();
+    private static readonly Guid AppointmentProfileId = Guid.NewGuid();
     private static readonly Guid UserId = Guid.NewGuid();
 
     public CancelAppointmentCommandHandlerTests()
     {
         var appointment = AppointmentEntity.Create(
             OrganisationId,
+            AppointmentProfileId,
             UserId,
             DateTimeOffset.UtcNow.AddHours(36),
             DateTimeOffset.UtcNow.AddHours(36).AddMinutes(30));
@@ -88,6 +90,7 @@ public sealed class CancelAppointmentCommandHandlerTests
     {
         var past = AppointmentEntity.Create(
             OrganisationId,
+            AppointmentProfileId,
             UserId,
             DateTimeOffset.UtcNow.AddHours(-2),
             DateTimeOffset.UtcNow.AddHours(-1));
@@ -110,6 +113,7 @@ public sealed class CancelAppointmentCommandHandlerTests
     {
         var near = AppointmentEntity.Create(
             OrganisationId,
+            AppointmentProfileId,
             UserId,
             DateTimeOffset.UtcNow.AddHours(8),
             DateTimeOffset.UtcNow.AddHours(8).AddMinutes(30));

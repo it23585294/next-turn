@@ -20,6 +20,13 @@ export interface AppointmentScheduleConfig {
   dayRules: AppointmentDayRule[]
 }
 
+export interface AppointmentProfileSummary {
+  appointmentProfileId: string
+  name: string
+  isActive: boolean
+  shareableLink: string
+}
+
 export interface BookAppointmentResult {
   appointmentId: string
 }
@@ -41,12 +48,14 @@ export interface ConfigureAppointmentScheduleResult {
 
 export interface BookAppointmentBody {
   organisationId: string
+  appointmentProfileId: string
   slotStart: string
   slotEnd: string
 }
 
 export async function getAvailableAppointmentSlots(
   organisationId: string,
+  appointmentProfileId: string,
   date: string,
 ): Promise<AvailableAppointmentSlot[]> {
   try {
@@ -54,6 +63,7 @@ export async function getAvailableAppointmentSlots(
     const { data } = await apiClient.get<AvailableAppointmentSlot[]>('/appointments/slots', {
       params: {
         organisationId,
+        appointmentProfileId,
         date,
       },
       headers: {
@@ -133,10 +143,12 @@ export async function cancelAppointment(
 
 export async function getAppointmentSchedule(
   organisationId: string,
+  appointmentProfileId: string,
 ): Promise<AppointmentScheduleConfig> {
   try {
     const token = getToken()
     const { data } = await apiClient.get<AppointmentScheduleConfig>('/appointments/config', {
+      params: { appointmentProfileId },
       headers: {
         Authorization: `Bearer ${token}`,
         'X-Tenant-Id': organisationId,
@@ -151,6 +163,7 @@ export async function getAppointmentSchedule(
 
 export async function configureAppointmentSchedule(
   organisationId: string,
+  appointmentProfileId: string,
   dayRules: AppointmentDayRule[],
 ): Promise<ConfigureAppointmentScheduleResult> {
   try {
@@ -159,11 +172,53 @@ export async function configureAppointmentSchedule(
       '/appointments/config',
       { dayRules },
       {
+        params: { appointmentProfileId },
         headers: {
           Authorization: `Bearer ${token}`,
           'X-Tenant-Id': organisationId,
         },
       }
+    )
+
+    return data
+  } catch (err) {
+    throw parseApiError(err)
+  }
+}
+
+export async function listAppointmentProfiles(
+  organisationId: string,
+): Promise<AppointmentProfileSummary[]> {
+  try {
+    const token = getToken()
+    const { data } = await apiClient.get<AppointmentProfileSummary[]>('/appointments/profiles', {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'X-Tenant-Id': organisationId,
+      },
+    })
+
+    return data
+  } catch (err) {
+    throw parseApiError(err)
+  }
+}
+
+export async function createAppointmentProfile(
+  organisationId: string,
+  name: string,
+): Promise<AppointmentProfileSummary> {
+  try {
+    const token = getToken()
+    const { data } = await apiClient.post<AppointmentProfileSummary>(
+      '/appointments/profiles',
+      { name },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'X-Tenant-Id': organisationId,
+        },
+      },
     )
 
     return data

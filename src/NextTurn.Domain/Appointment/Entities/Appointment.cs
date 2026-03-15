@@ -10,6 +10,7 @@ public class Appointment
 {
     public Guid Id { get; }
     public Guid OrganisationId { get; private set; }
+    public Guid AppointmentProfileId { get; private set; }
     public Guid UserId { get; private set; }
     public DateTimeOffset SlotStart { get; private set; }
     public DateTimeOffset SlotEnd { get; private set; }
@@ -23,6 +24,7 @@ public class Appointment
     private Appointment(
         Guid id,
         Guid organisationId,
+        Guid appointmentProfileId,
         Guid userId,
         DateTimeOffset slotStart,
         DateTimeOffset slotEnd,
@@ -31,6 +33,7 @@ public class Appointment
     {
         Id = id;
         OrganisationId = organisationId;
+        AppointmentProfileId = appointmentProfileId;
         UserId = userId;
         SlotStart = slotStart;
         SlotEnd = slotEnd;
@@ -40,6 +43,7 @@ public class Appointment
 
     public static Appointment Create(
         Guid organisationId,
+        Guid appointmentProfileId,
         Guid userId,
         DateTimeOffset slotStart,
         DateTimeOffset slotEnd)
@@ -50,12 +54,16 @@ public class Appointment
         if (userId == Guid.Empty)
             throw new DomainException("User ID is required.");
 
+        if (appointmentProfileId == Guid.Empty)
+            throw new DomainException("Appointment profile ID is required.");
+
         if (slotEnd <= slotStart)
             throw new DomainException("Slot end must be after slot start.");
 
         return new Appointment(
             id: Guid.NewGuid(),
             organisationId: organisationId,
+            appointmentProfileId: appointmentProfileId,
             userId: userId,
             slotStart: slotStart,
             slotEnd: slotEnd,
@@ -105,6 +113,6 @@ public class Appointment
         Status = AppointmentStatus.Rescheduled;
 
         // Create a new appointment for the replacement slot.
-        return Create(OrganisationId, UserId, slotStart, slotEnd);
+        return Create(OrganisationId, AppointmentProfileId, UserId, slotStart, slotEnd);
     }
 }

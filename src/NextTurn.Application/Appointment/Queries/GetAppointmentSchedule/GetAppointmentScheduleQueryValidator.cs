@@ -8,5 +8,8 @@ public sealed class GetAppointmentScheduleQueryValidator : AbstractValidator<Get
     {
         RuleFor(x => x.OrganisationId)
             .NotEmpty().WithMessage("Organisation ID is required.");
+
+        RuleFor(x => x.AppointmentProfileId)
+            .NotEmpty().WithMessage("Appointment profile ID is required.");
     }
 }

@@ -12,6 +12,9 @@ public sealed class BookAppointmentCommandValidator : AbstractValidator<BookAppo
         RuleFor(x => x.UserId)
             .NotEmpty().WithMessage("User ID is required.");
 
+        RuleFor(x => x.AppointmentProfileId)
+            .NotEmpty().WithMessage("Appointment profile ID is required.");
+
         RuleFor(x => x.SlotStart)
             .NotEmpty().WithMessage("Slot start is required.");
 

@@ -6,10 +6,12 @@ using NextTurn.API.Models.Appointments;
 using NextTurn.Application.Appointment.Commands.BookAppointment;
 using NextTurn.Application.Appointment.Commands.CancelAppointment;
 using NextTurn.Application.Appointment.Commands.ConfigureAppointmentSchedule;
+using NextTurn.Application.Appointment.Commands.CreateAppointmentProfile;
 using NextTurn.Application.Appointment.Commands.RescheduleAppointment;
 using NextTurn.Application.Appointment.Common;
 using NextTurn.Application.Appointment.Queries.GetAppointmentSchedule;
 using NextTurn.Application.Appointment.Queries.GetAvailableSlots;
+using NextTurn.Application.Appointment.Queries.ListAppointmentProfiles;
 
 namespace NextTurn.API.Controllers;
 
@@ -42,6 +44,7 @@ public sealed class AppointmentsController : ControllerBase
 
         var command = new BookAppointmentCommand(
             request.OrganisationId,
+            request.AppointmentProfileId,
             userId,
             request.SlotStart,
             request.SlotEnd);
@@ -56,10 +59,11 @@ public sealed class AppointmentsController : ControllerBase
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status422UnprocessableEntity)]
     public async Task<IActionResult> GetAvailableSlots(
         [FromQuery] Guid organisationId,
+        [FromQuery] Guid appointmentProfileId,
         [FromQuery] DateOnly date,
         CancellationToken cancellationToken)
     {
-        var query = new GetAvailableSlotsQuery(organisationId, date);
+        var query = new GetAvailableSlotsQuery(organisationId, appointmentProfileId, date);
         var result = await _sender.Send(query, cancellationToken);
 
         return Ok(result);
@@ -70,13 +74,15 @@ public sealed class AppointmentsController : ControllerBase
     [ProducesResponseType(typeof(GetAppointmentScheduleResult), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> GetScheduleConfig(CancellationToken cancellationToken)
+    public async Task<IActionResult> GetScheduleConfig(
+        [FromQuery] Guid appointmentProfileId,
+        CancellationToken cancellationToken)
     {
         var tenantIdClaim = User.FindFirstValue("tid");
         if (!Guid.TryParse(tenantIdClaim, out var organisationId) || organisationId == Guid.Empty)
             return Unauthorized();
 
-        var query = new GetAppointmentScheduleQuery(organisationId);
+        var query = new GetAppointmentScheduleQuery(organisationId, appointmentProfileId);
         var result = await _sender.Send(query, cancellationToken);
 
         return Ok(result);
@@ -89,6 +95,7 @@ public sealed class AppointmentsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status422UnprocessableEntity)]
     public async Task<IActionResult> ConfigureSchedule(
+        [FromQuery] Guid appointmentProfileId,
         [FromBody] ConfigureAppointmentScheduleRequest request,
         CancellationToken cancellationToken)
     {
@@ -98,6 +105,7 @@ public sealed class AppointmentsController : ControllerBase
 
         var command = new ConfigureAppointmentScheduleCommand(
             organisationId,
+            appointmentProfileId,
             request.DayRules
                 .Select(r => new AppointmentDayRuleDto(
                     r.DayOfWeek,
@@ -108,6 +116,43 @@ public sealed class AppointmentsController : ControllerBase
                 .ToList());
 
         var result = await _sender.Send(command, cancellationToken);
+        return Ok(result);
+    }
+
+    [HttpGet("profiles")]
+    [Authorize(Roles = "OrgAdmin,SystemAdmin")]
+    [ProducesResponseType(typeof(IReadOnlyList<AppointmentProfileDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> ListProfiles(CancellationToken cancellationToken)
+    {
+        var tenantIdClaim = User.FindFirstValue("tid");
+        if (!Guid.TryParse(tenantIdClaim, out var organisationId) || organisationId == Guid.Empty)
+            return Unauthorized();
+
+        var query = new ListAppointmentProfilesQuery(organisationId);
+        var result = await _sender.Send(query, cancellationToken);
+
+        return Ok(result);
+    }
+
+    [HttpPost("profiles")]
+    [Authorize(Roles = "OrgAdmin,SystemAdmin")]
+    [ProducesResponseType(typeof(CreateAppointmentProfileResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> CreateProfile(
+        [FromBody] CreateAppointmentProfileRequest request,
+        CancellationToken cancellationToken)
+    {
+        var tenantIdClaim = User.FindFirstValue("tid");
+        if (!Guid.TryParse(tenantIdClaim, out var organisationId) || organisationId == Guid.Empty)
+            return Unauthorized();
+
+        var command = new CreateAppointmentProfileCommand(organisationId, request.Name);
+        var result = await _sender.Send(command, cancellationToken);
+
         return Ok(result);
     }
 

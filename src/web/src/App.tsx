@@ -126,6 +126,15 @@ function App() {
         }
       />
 
+      <Route
+        path="/appointments/:tenantId/:appointmentProfileId"
+        element={
+          <ProtectedRoute>
+            <AppointmentPage />
+          </ProtectedRoute>
+        }
+      />
+
       {/* Public — no tenant context required; org doesn't exist yet */}
       <Route path="/register-org" element={<OrgRegistrationPage />} />
 

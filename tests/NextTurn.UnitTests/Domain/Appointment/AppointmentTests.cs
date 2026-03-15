@@ -8,6 +8,7 @@ namespace NextTurn.UnitTests.Domain.Appointment;
 public sealed class AppointmentTests
 {
     private static readonly Guid OrgId = Guid.NewGuid();
+    private static readonly Guid AppointmentProfileId = Guid.NewGuid();
     private static readonly Guid UserId = Guid.NewGuid();
 
     [Fact]
@@ -16,10 +17,11 @@ public sealed class AppointmentTests
         var slotStart = new DateTimeOffset(2026, 3, 20, 10, 0, 0, TimeSpan.Zero);
         var slotEnd = slotStart.AddMinutes(30);
 
-        var appointment = AppointmentEntity.Create(OrgId, UserId, slotStart, slotEnd);
+        var appointment = AppointmentEntity.Create(OrgId, AppointmentProfileId, UserId, slotStart, slotEnd);
 
         appointment.Id.Should().NotBeEmpty();
         appointment.OrganisationId.Should().Be(OrgId);
+        appointment.AppointmentProfileId.Should().Be(AppointmentProfileId);
         appointment.UserId.Should().Be(UserId);
         appointment.SlotStart.Should().Be(slotStart);
         appointment.SlotEnd.Should().Be(slotEnd);
@@ -32,7 +34,7 @@ public sealed class AppointmentTests
         var slotStart = new DateTimeOffset(2026, 3, 20, 10, 0, 0, TimeSpan.Zero);
         var slotEnd = slotStart.AddMinutes(30);
 
-        var act = () => AppointmentEntity.Create(Guid.Empty, UserId, slotStart, slotEnd);
+        var act = () => AppointmentEntity.Create(Guid.Empty, AppointmentProfileId, UserId, slotStart, slotEnd);
 
         act.Should().Throw<DomainException>().WithMessage("Organisation ID is required.");
     }
@@ -43,7 +45,7 @@ public sealed class AppointmentTests
         var slotStart = new DateTimeOffset(2026, 3, 20, 10, 0, 0, TimeSpan.Zero);
         var slotEnd = slotStart.AddMinutes(30);
 
-        var act = () => AppointmentEntity.Create(OrgId, Guid.Empty, slotStart, slotEnd);
+        var act = () => AppointmentEntity.Create(OrgId, AppointmentProfileId, Guid.Empty, slotStart, slotEnd);
 
         act.Should().Throw<DomainException>().WithMessage("User ID is required.");
     }
@@ -54,7 +56,7 @@ public sealed class AppointmentTests
         var slotStart = new DateTimeOffset(2026, 3, 20, 10, 0, 0, TimeSpan.Zero);
         var slotEnd = slotStart.AddMinutes(-30);
 
-        var act = () => AppointmentEntity.Create(OrgId, UserId, slotStart, slotEnd);
+        var act = () => AppointmentEntity.Create(OrgId, AppointmentProfileId, UserId, slotStart, slotEnd);
 
         act.Should().Throw<DomainException>().WithMessage("Slot end must be after slot start.");
     }
@@ -64,6 +66,7 @@ public sealed class AppointmentTests
     {
         var appointment = AppointmentEntity.Create(
             OrgId,
+            AppointmentProfileId,
             UserId,
             new DateTimeOffset(2026, 3, 20, 10, 0, 0, TimeSpan.Zero),
             new DateTimeOffset(2026, 3, 20, 10, 30, 0, TimeSpan.Zero));
@@ -80,6 +83,7 @@ public sealed class AppointmentTests
     {
         var appointment = AppointmentEntity.Create(
             OrgId,
+            AppointmentProfileId,
             UserId,
             new DateTimeOffset(2026, 3, 20, 10, 0, 0, TimeSpan.Zero),
             new DateTimeOffset(2026, 3, 20, 10, 30, 0, TimeSpan.Zero));
@@ -97,6 +101,7 @@ public sealed class AppointmentTests
         var start = DateTimeOffset.UtcNow.AddHours(30);
         var appointment = AppointmentEntity.Create(
             OrgId,
+            AppointmentProfileId,
             UserId,
             start,
             start.AddMinutes(30));
@@ -113,6 +118,7 @@ public sealed class AppointmentTests
         var start = DateTimeOffset.UtcNow.AddHours(12);
         var appointment = AppointmentEntity.Create(
             OrgId,
+            AppointmentProfileId,
             UserId,
             start,
             start.AddMinutes(30));
@@ -128,6 +134,7 @@ public sealed class AppointmentTests
     {
         var appointment = AppointmentEntity.Create(
             OrgId,
+            AppointmentProfileId,
             UserId,
             DateTimeOffset.UtcNow.AddHours(-2),
             DateTimeOffset.UtcNow.AddHours(-1));
@@ -143,6 +150,7 @@ public sealed class AppointmentTests
         var start = DateTimeOffset.UtcNow.AddHours(2);
         var appointment = AppointmentEntity.Create(
             OrgId,
+            AppointmentProfileId,
             UserId,
             start,
             start.AddMinutes(30));
@@ -160,7 +168,7 @@ public sealed class AppointmentTests
         var originalStart = DateTimeOffset.UtcNow.AddHours(2);
         var originalEnd = originalStart.AddMinutes(30);
 
-        var appointment = AppointmentEntity.Create(OrgId, UserId, originalStart, originalEnd);
+        var appointment = AppointmentEntity.Create(OrgId, AppointmentProfileId, UserId, originalStart, originalEnd);
 
         var nextStart = DateTimeOffset.UtcNow.AddHours(5);
         var nextEnd = nextStart.AddMinutes(45);
@@ -171,6 +179,7 @@ public sealed class AppointmentTests
 
         replacement.Id.Should().NotBe(appointment.Id);
         replacement.OrganisationId.Should().Be(appointment.OrganisationId);
+        replacement.AppointmentProfileId.Should().Be(appointment.AppointmentProfileId);
         replacement.UserId.Should().Be(appointment.UserId);
         replacement.SlotStart.Should().Be(nextStart);
         replacement.SlotEnd.Should().Be(nextEnd);
@@ -183,6 +192,7 @@ public sealed class AppointmentTests
         var currentStart = DateTimeOffset.UtcNow.AddHours(1);
         var appointment = AppointmentEntity.Create(
             OrgId,
+            AppointmentProfileId,
             UserId,
             currentStart,
             currentStart.AddMinutes(30));
@@ -201,6 +211,7 @@ public sealed class AppointmentTests
     {
         var appointment = AppointmentEntity.Create(
             OrgId,
+            AppointmentProfileId,
             UserId,
             DateTimeOffset.UtcNow.AddHours(-2),
             DateTimeOffset.UtcNow.AddHours(-1));
@@ -217,6 +228,7 @@ public sealed class AppointmentTests
     {
         var appointment = AppointmentEntity.Create(
             OrgId,
+            AppointmentProfileId,
             UserId,
             DateTimeOffset.UtcNow.AddHours(1),
             DateTimeOffset.UtcNow.AddHours(1).AddMinutes(30));
@@ -233,6 +245,7 @@ public sealed class AppointmentTests
     {
         var appointment = AppointmentEntity.Create(
             OrgId,
+            AppointmentProfileId,
             UserId,
             DateTimeOffset.UtcNow.AddHours(1),
             DateTimeOffset.UtcNow.AddHours(1).AddMinutes(30));
