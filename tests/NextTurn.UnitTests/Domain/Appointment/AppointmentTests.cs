@@ -94,15 +94,64 @@ public sealed class AppointmentTests
     [Fact]
     public void Cancel_SetsStatusCancelled()
     {
+        var start = DateTimeOffset.UtcNow.AddHours(30);
         var appointment = AppointmentEntity.Create(
             OrgId,
             UserId,
-            new DateTimeOffset(2026, 3, 20, 10, 0, 0, TimeSpan.Zero),
-            new DateTimeOffset(2026, 3, 20, 10, 30, 0, TimeSpan.Zero));
+            start,
+            start.AddMinutes(30));
 
         appointment.Cancel();
 
         appointment.Status.Should().Be(AppointmentStatus.Cancelled);
+        appointment.LateCancellation.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Cancel_Within24Hours_SetsLateCancellationTrue()
+    {
+        var start = DateTimeOffset.UtcNow.AddHours(12);
+        var appointment = AppointmentEntity.Create(
+            OrgId,
+            UserId,
+            start,
+            start.AddMinutes(30));
+
+        appointment.Cancel();
+
+        appointment.Status.Should().Be(AppointmentStatus.Cancelled);
+        appointment.LateCancellation.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Cancel_WhenPastAppointment_ThrowsDomainException()
+    {
+        var appointment = AppointmentEntity.Create(
+            OrgId,
+            UserId,
+            DateTimeOffset.UtcNow.AddHours(-2),
+            DateTimeOffset.UtcNow.AddHours(-1));
+
+        var act = () => appointment.Cancel();
+
+        act.Should().Throw<DomainException>().WithMessage("Past appointments cannot be cancelled.");
+    }
+
+    [Fact]
+    public void Cancel_WhenAlreadyCancelled_ThrowsDomainException()
+    {
+        var start = DateTimeOffset.UtcNow.AddHours(2);
+        var appointment = AppointmentEntity.Create(
+            OrgId,
+            UserId,
+            start,
+            start.AddMinutes(30));
+
+        appointment.Cancel();
+
+        var act = () => appointment.Cancel();
+
+        act.Should().Throw<DomainException>().WithMessage("Appointment is already cancelled.");
     }
 
     [Fact]
