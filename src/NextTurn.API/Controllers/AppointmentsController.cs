@@ -12,6 +12,7 @@ using NextTurn.Application.Appointment.Common;
 using NextTurn.Application.Appointment.Queries.GetAppointmentBookingContext;
 using NextTurn.Application.Appointment.Queries.GetAppointmentSchedule;
 using NextTurn.Application.Appointment.Queries.GetAvailableSlots;
+using NextTurn.Application.Appointment.Queries.GetMyAppointments;
 using NextTurn.Application.Appointment.Queries.ListAppointmentProfiles;
 
 namespace NextTurn.API.Controllers;
@@ -82,6 +83,22 @@ public sealed class AppointmentsController : ControllerBase
         var query = new GetAppointmentBookingContextQuery(organisationId, appointmentProfileId);
         var result = await _sender.Send(query, cancellationToken);
 
+        return Ok(result);
+    }
+
+    [HttpGet("my-bookings")]
+    [ProducesResponseType(typeof(IReadOnlyList<MyAppointmentBooking>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> GetMyBookings(CancellationToken cancellationToken)
+    {
+        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier)
+                       ?? User.FindFirstValue("sub");
+
+        if (!Guid.TryParse(userIdClaim, out var userId))
+            return Unauthorized();
+
+        var query = new GetMyAppointmentsQuery(userId);
+        var result = await _sender.Send(query, cancellationToken);
         return Ok(result);
     }
 

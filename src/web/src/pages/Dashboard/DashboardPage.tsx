@@ -23,10 +23,9 @@ import { useNavigate, Link } from 'react-router-dom'
 import { clearToken } from '../../utils/authToken'
 import { getTokenPayload } from '../../utils/authToken'
 import { getMyQueues, type MyQueueEntry } from '../../api/queues'
+import { getMyAppointmentBookings, type MyAppointmentBooking } from '../../api/appointments'
 import logoImg from '../../assets/nextTurn-logo.png'
 import styles from './DashboardPage.module.css'
-
-const EMPTY_TENANT = '00000000-0000-0000-0000-000000000000'
 
 /** Human-readable label for the UserRole enum string */
 function roleBadgeLabel(role: string): { label: string; className: string } {
@@ -52,19 +51,23 @@ export function DashboardPage() {
 
   const { name, email, role } = payload
   const badge = roleBadgeLabel(role)
-  const appointmentPath = payload.tid && payload.tid !== EMPTY_TENANT
-    ? `/appointments/${payload.tid}`
-    : '/appointments'
-
   // ── My active queues ──────────────────────────────────────────────────
   const [queues, setQueues] = useState<MyQueueEntry[]>([])
   const [queuesLoading, setQueuesLoading] = useState(true)
   const [queuesError, setQueuesError] = useState<string | null>(null)
 
+  const [appointments, setAppointments] = useState<MyAppointmentBooking[]>([])
+  const [appointmentsLoading, setAppointmentsLoading] = useState(true)
+  const [appointmentsError, setAppointmentsError] = useState<string | null>(null)
+
   useEffect(() => {
     getMyQueues()
       .then(data => { setQueues(data); setQueuesLoading(false) })
       .catch(() => { setQueuesError('Could not load your queues.'); setQueuesLoading(false) })
+
+    getMyAppointmentBookings()
+      .then(data => { setAppointments(data); setAppointmentsLoading(false) })
+      .catch(() => { setAppointmentsError('Could not load your appointment bookings.'); setAppointmentsLoading(false) })
   }, [])
 
   // ── Join by link ─────────────────────────────────────────────────────
@@ -194,6 +197,52 @@ export function DashboardPage() {
             )}
           </section>
 
+          <section className={styles.queueSection} aria-label="My active appointment bookings">
+            <div className={styles.sectionHeader}>
+              <CalendarIcon />
+              <h2 className={styles.sectionTitle}>My Active Appointment Bookings</h2>
+            </div>
+
+            {appointmentsLoading && (
+              <div className={styles.queuePlaceholder}>
+                <span className={styles.queueSpinner} aria-hidden="true" />
+                <span>Loading bookings…</span>
+              </div>
+            )}
+
+            {!appointmentsLoading && appointmentsError && (
+              <p className={styles.queueError}>{appointmentsError}</p>
+            )}
+
+            {!appointmentsLoading && !appointmentsError && appointments.length === 0 && (
+              <p className={styles.queueEmpty}>You don't have any active appointment bookings yet.</p>
+            )}
+
+            {!appointmentsLoading && appointments.length > 0 && (
+              <ul className={styles.queueList}>
+                {appointments.map(a => (
+                  <li key={a.appointmentId} className={styles.appointmentCard}>
+                    <div className={styles.appointmentInfo}>
+                      <span className={styles.queueCardName}>{a.appointmentProfileName}</span>
+                      <span className={styles.appointmentMeta}>{a.organisationName}</span>
+                      <span className={styles.appointmentMeta}>
+                        {formatDashboardSlot(a.slotStart, a.slotEnd)}
+                      </span>
+                    </div>
+
+                    <Link
+                      to={`/appointments/${a.organisationId}/${a.appointmentProfileId}`}
+                      className={styles.queueJoinLink}
+                      aria-label={`View appointment booking ${a.appointmentProfileName}`}
+                    >
+                      View &rarr;
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
           {/* ── Join by link ─────────────────────────────────────────── */}
           <section className={styles.joinWidget} aria-label="Join a queue by link">
             <div className={styles.sectionHeader}>
@@ -251,19 +300,6 @@ export function DashboardPage() {
             {appointmentLinkError && <p className={styles.joinWidgetError}>{appointmentLinkError}</p>}
           </section>
 
-          <section className={styles.joinWidget} aria-label="Book an appointment">
-            <div className={styles.sectionHeader}>
-              <CalendarIcon />
-              <h2 className={styles.sectionTitle}>Appointments</h2>
-            </div>
-            <p className={styles.joinWidgetDesc}>
-              Prefer a guaranteed time? Book an appointment from the slot calendar.
-            </p>
-            <Link to={appointmentPath} className={styles.queueJoinLink}>
-              Open Appointment Booking &rarr;
-            </Link>
-          </section>
-
           {/* Auth flow confirmation — useful during demo / grading */}
           <div className={styles.authCard} role="note">
             <CheckCircleIcon />
@@ -279,6 +315,17 @@ export function DashboardPage() {
       </main>
     </div>
   )
+}
+
+function formatDashboardSlot(slotStart: string, slotEnd: string): string {
+  const start = new Date(slotStart)
+  const end = new Date(slotEnd)
+
+  const date = start.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })
+  const from = start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  const to = end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+
+  return `${date} · ${from} - ${to}`
 }
 
 /* ------------------------------------------------------------------ */

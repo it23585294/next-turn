@@ -36,6 +36,17 @@ export interface AppointmentBookingContext {
   shareableLink: string
 }
 
+export interface MyAppointmentBooking {
+  appointmentId: string
+  organisationId: string
+  organisationName: string
+  appointmentProfileId: string
+  appointmentProfileName: string
+  slotStart: string
+  slotEnd: string
+  status: string
+}
+
 export interface BookAppointmentResult {
   appointmentId: string
 }
@@ -101,6 +112,21 @@ export async function getAppointmentBookingContext(
       headers: {
         Authorization: `Bearer ${token}`,
         'X-Tenant-Id': organisationId,
+      },
+    })
+
+    return data
+  } catch (err) {
+    throw parseApiError(err)
+  }
+}
+
+export async function getMyAppointmentBookings(): Promise<MyAppointmentBooking[]> {
+  try {
+    const token = getToken()
+    const { data } = await apiClient.get<MyAppointmentBooking[]>('/appointments/my-bookings', {
+      headers: {
+        Authorization: `Bearer ${token}`,
       },
     })
 

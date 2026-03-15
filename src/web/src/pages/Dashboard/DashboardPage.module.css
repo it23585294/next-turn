@@ -394,6 +394,33 @@
   box-shadow: 0 2px 8px rgba(35, 114, 39, 0.1);
 }
 
+.appointmentCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, rgba(35, 114, 39, 0.06), rgba(255, 255, 255, 0.95));
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.appointmentCard:hover {
+  border-color: var(--color-primary);
+  box-shadow: 0 2px 8px rgba(35, 114, 39, 0.1);
+}
+
+.appointmentInfo {
+  display: grid;
+  gap: 2px;
+}
+
+.appointmentMeta {
+  color: var(--color-text-muted);
+  font-size: 0.8125rem;
+}
+
 .queueCardInfo {
   display: flex;
   align-items: center;
