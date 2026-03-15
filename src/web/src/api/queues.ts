@@ -261,3 +261,123 @@ export async function leaveQueue(
     throw parseApiError(err)
   }
 }
+
+export interface QueueDashboardEntry {
+  entryId: string
+  ticketNumber: number
+  joinedAt: string
+}
+
+export interface QueueDashboardResult {
+  queueId: string
+  queueName: string
+  queueStatus: 'Active' | 'Paused' | 'Closed'
+  waitingCount: number
+  currentlyServing: QueueDashboardEntry | null
+  waitingEntries: QueueDashboardEntry[]
+}
+
+export interface QueueEntryActionResult {
+  entryId: string
+  ticketNumber: number
+  status: 'Serving' | 'Served' | 'NoShow'
+}
+
+/**
+ * GET /api/queues/{queueId}/dashboard
+ */
+export async function getQueueDashboard(
+  queueId: string,
+  tenantId: string,
+): Promise<QueueDashboardResult> {
+  try {
+    const token = getToken()
+    const { data } = await apiClient.get<QueueDashboardResult>(
+      `/queues/${queueId}/dashboard`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'X-Tenant-Id': tenantId,
+        },
+      }
+    )
+    return data
+  } catch (err) {
+    throw parseApiError(err)
+  }
+}
+
+/**
+ * POST /api/queues/{queueId}/call-next
+ */
+export async function callNext(
+  queueId: string,
+  tenantId: string,
+): Promise<QueueEntryActionResult> {
+  try {
+    const token = getToken()
+    const { data } = await apiClient.post<QueueEntryActionResult>(
+      `/queues/${queueId}/call-next`,
+      null,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'X-Tenant-Id': tenantId,
+        },
+      }
+    )
+    return data
+  } catch (err) {
+    throw parseApiError(err)
+  }
+}
+
+/**
+ * POST /api/queues/{queueId}/served
+ */
+export async function markServed(
+  queueId: string,
+  tenantId: string,
+): Promise<QueueEntryActionResult> {
+  try {
+    const token = getToken()
+    const { data } = await apiClient.post<QueueEntryActionResult>(
+      `/queues/${queueId}/served`,
+      null,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'X-Tenant-Id': tenantId,
+        },
+      }
+    )
+    return data
+  } catch (err) {
+    throw parseApiError(err)
+  }
+}
+
+/**
+ * POST /api/queues/{queueId}/no-show
+ */
+export async function markNoShow(
+  queueId: string,
+  tenantId: string,
+): Promise<QueueEntryActionResult> {
+  try {
+    const token = getToken()
+    const { data } = await apiClient.post<QueueEntryActionResult>(
+      `/queues/${queueId}/no-show`,
+      null,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'X-Tenant-Id': tenantId,
+        },
+      }
+    )
+    return data
+  } catch (err) {
+    throw parseApiError(err)
+  }
+}

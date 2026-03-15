@@ -9,7 +9,7 @@
  *  /login/:tenantId        → LoginPage    (org-member)
  *  /dashboard              → ProtectedRoute → DashboardPage (consumer user, no tenantId)
  *  /dashboard/:tenantId    → ProtectedRoute → DashboardPage
- *  /staff/:tenantId        → ProtectedRoute (Staff+)    → stub
+ *  /staff/:tenantId        → ProtectedRoute (Staff+)    → StaffDashboardPage
  *  /admin/:tenantId        → ProtectedRoute (OrgAdmin+) → AdminDashboardPage
  *  /system/:tenantId       → ProtectedRoute (SystemAdmin) → stub
  *  /queues/:tenantId/:queueId → ProtectedRoute → QueuePage
@@ -30,12 +30,11 @@ import { ProtectedRoute }       from './components/ProtectedRoute'
 import { QueuePage }            from './pages/Queue'
 import { AppointmentPage }      from './pages/Appointment'
 import { AdminDashboardPage }   from './pages/Admin'
+import { StaffDashboardPage }   from './pages/Staff'
 import { TermsPage, PrivacyPage } from './pages/Legal'
 
 // ── Role-restricted stub pages ────────────────────────────────────────────────
-// Temporary placeholders so the route guards have real targets during NT-12
-// testing and the sprint demo. Replace with real feature pages in Sprint 2+.
-const StaffStub     = () => <main style={{ padding: '2rem' }}><h1>Staff Area — Sprint 2</h1></main>
+// System admin area is still a placeholder until the corresponding story lands.
 const SystemAdminStub = () => <main style={{ padding: '2rem' }}><h1>System Area — Sprint 2</h1></main>
 
 function App() {
@@ -74,7 +73,7 @@ function App() {
         path="/staff/:tenantId"
         element={
           <ProtectedRoute allowedRoles={['Staff', 'OrgAdmin', 'SystemAdmin']}>
-            <StaffStub />
+            <StaffDashboardPage />
           </ProtectedRoute>
         }
       />
