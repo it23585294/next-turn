@@ -3,9 +3,14 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NextTurn.API.Models.Queues;
+using NextTurn.Application.Queue.Commands.CallNext;
 using NextTurn.Application.Queue.Commands.CreateQueue;
 using NextTurn.Application.Queue.Commands.JoinQueue;
 using NextTurn.Application.Queue.Commands.LeaveQueue;
+using NextTurn.Application.Queue.Commands.MarkNoShow;
+using NextTurn.Application.Queue.Commands.MarkServed;
+using NextTurn.Application.Queue.Commands;
+using NextTurn.Application.Queue.Queries.GetQueueDashboard;
 using NextTurn.Application.Queue.Queries.GetMyQueues;
 using NextTurn.Application.Queue.Queries.GetQueueStatus;
 using NextTurn.Application.Queue.Queries.ListOrgQueues;
@@ -276,6 +281,83 @@ public sealed class QueuesController : ControllerBase
         var query  = new GetQueueStatusQuery(queueId, userId);
         var result = await _sender.Send(query, cancellationToken);
 
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Returns staff dashboard data for a queue: current serving ticket and waiting list.
+    /// </summary>
+    [HttpGet("{queueId:guid}/dashboard")]
+    [Authorize(Policy = "IsStaff")]
+    [ProducesResponseType(typeof(GetQueueDashboardResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> GetQueueDashboard(
+        Guid queueId,
+        CancellationToken cancellationToken)
+    {
+        var query = new GetQueueDashboardQuery(queueId);
+        var result = await _sender.Send(query, cancellationToken);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Calls the next waiting ticket into service.
+    /// </summary>
+    [HttpPost("{queueId:guid}/call-next")]
+    [Authorize(Policy = "IsStaff")]
+    [ProducesResponseType(typeof(QueueEntryActionResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> CallNext(
+        Guid queueId,
+        CancellationToken cancellationToken)
+    {
+        var command = new CallNextCommand(queueId);
+        var result = await _sender.Send(command, cancellationToken);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Marks the currently serving ticket as served.
+    /// </summary>
+    [HttpPost("{queueId:guid}/served")]
+    [Authorize(Policy = "IsStaff")]
+    [ProducesResponseType(typeof(QueueEntryActionResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> MarkServed(
+        Guid queueId,
+        CancellationToken cancellationToken)
+    {
+        var command = new MarkServedCommand(queueId);
+        var result = await _sender.Send(command, cancellationToken);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Marks the currently serving ticket as no-show.
+    /// </summary>
+    [HttpPost("{queueId:guid}/no-show")]
+    [Authorize(Policy = "IsStaff")]
+    [ProducesResponseType(typeof(QueueEntryActionResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> MarkNoShow(
+        Guid queueId,
+        CancellationToken cancellationToken)
+    {
+        var command = new MarkNoShowCommand(queueId);
+        var result = await _sender.Send(command, cancellationToken);
         return Ok(result);
     }
 }
