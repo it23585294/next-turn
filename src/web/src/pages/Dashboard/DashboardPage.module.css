@@ -416,6 +416,35 @@
   gap: 2px;
 }
 
+.appointmentActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.appointmentCancelBtn {
+  border: 1px solid rgba(192, 57, 43, 0.35);
+  background: rgba(192, 57, 43, 0.07);
+  color: #a93226;
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+
+.appointmentCancelBtn:hover:not(:disabled) {
+  background: rgba(192, 57, 43, 0.14);
+  border-color: rgba(192, 57, 43, 0.55);
+}
+
+.appointmentCancelBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .appointmentMeta {
   color: var(--color-text-muted);
   font-size: 0.8125rem;
@@ -497,6 +526,16 @@
 }
 
 .queueError { color: #c62828; }
+
+.queueSuccess {
+  font-size: 0.9rem;
+  margin: 0;
+  color: #1b5e20;
+  background: #e8f5e9;
+  border: 1px solid rgba(27, 94, 32, 0.2);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+}
 
 /* ============================================================
    Join by link widget

@@ -23,7 +23,8 @@ import { useNavigate, Link } from 'react-router-dom'
 import { clearToken } from '../../utils/authToken'
 import { getTokenPayload } from '../../utils/authToken'
 import { getMyQueues, type MyQueueEntry } from '../../api/queues'
-import { getMyAppointmentBookings, type MyAppointmentBooking } from '../../api/appointments'
+import { cancelAppointment, getMyAppointmentBookings, type MyAppointmentBooking } from '../../api/appointments'
+import type { ApiError } from '../../types/api'
 import logoImg from '../../assets/nextTurn-logo.png'
 import styles from './DashboardPage.module.css'
 
@@ -59,6 +60,8 @@ export function DashboardPage() {
   const [appointments, setAppointments] = useState<MyAppointmentBooking[]>([])
   const [appointmentsLoading, setAppointmentsLoading] = useState(true)
   const [appointmentsError, setAppointmentsError] = useState<string | null>(null)
+  const [appointmentsSuccess, setAppointmentsSuccess] = useState<string | null>(null)
+  const [cancellingAppointmentId, setCancellingAppointmentId] = useState<string | null>(null)
 
   useEffect(() => {
     getMyQueues()
@@ -69,6 +72,16 @@ export function DashboardPage() {
       .then(data => { setAppointments(data); setAppointmentsLoading(false) })
       .catch(() => { setAppointmentsError('Could not load your appointment bookings.'); setAppointmentsLoading(false) })
   }, [])
+
+  useEffect(() => {
+    if (!appointmentsSuccess) return
+
+    const timer = window.setTimeout(() => {
+      setAppointmentsSuccess(null)
+    }, 4000)
+
+    return () => window.clearTimeout(timer)
+  }, [appointmentsSuccess])
 
   // ── Join by link ─────────────────────────────────────────────────────
   const [linkInput, setLinkInput] = useState('')
@@ -109,6 +122,26 @@ export function DashboardPage() {
   function handleLogout() {
     clearToken()
     navigate('/', { replace: true })
+  }
+
+  async function handleCancelAppointment(appointment: MyAppointmentBooking) {
+    const shouldCancel = window.confirm('Cancel this appointment booking?')
+    if (!shouldCancel) return
+
+    setAppointmentsError(null)
+    setAppointmentsSuccess(null)
+    setCancellingAppointmentId(appointment.appointmentId)
+
+    try {
+      await cancelAppointment(appointment.appointmentId, appointment.organisationId)
+      setAppointments(prev => prev.filter(a => a.appointmentId !== appointment.appointmentId))
+      setAppointmentsSuccess('Appointment booking cancelled successfully.')
+    } catch (err) {
+      const apiErr = err as ApiError
+      setAppointmentsError(apiErr.detail ?? 'Could not cancel this appointment booking.')
+    } finally {
+      setCancellingAppointmentId(null)
+    }
   }
 
   return (
@@ -214,6 +247,10 @@ export function DashboardPage() {
               <p className={styles.queueError}>{appointmentsError}</p>
             )}
 
+            {!appointmentsLoading && !appointmentsError && appointmentsSuccess && (
+              <p className={styles.queueSuccess}>{appointmentsSuccess}</p>
+            )}
+
             {!appointmentsLoading && !appointmentsError && appointments.length === 0 && (
               <p className={styles.queueEmpty}>You don't have any active appointment bookings yet.</p>
             )}
@@ -230,13 +267,23 @@ export function DashboardPage() {
                       </span>
                     </div>
 
-                    <Link
-                      to={`/appointments/${a.organisationId}/${a.appointmentProfileId}`}
-                      className={styles.queueJoinLink}
-                      aria-label={`View appointment booking ${a.appointmentProfileName}`}
-                    >
-                      View &rarr;
-                    </Link>
+                    <div className={styles.appointmentActions}>
+                      <Link
+                        to={`/appointments/${a.organisationId}/${a.appointmentProfileId}`}
+                        className={styles.queueJoinLink}
+                        aria-label={`View appointment booking ${a.appointmentProfileName}`}
+                      >
+                        View &rarr;
+                      </Link>
+                      <button
+                        type="button"
+                        className={styles.appointmentCancelBtn}
+                        onClick={() => handleCancelAppointment(a)}
+                        disabled={cancellingAppointmentId === a.appointmentId}
+                      >
+                        {cancellingAppointmentId === a.appointmentId ? 'Cancelling...' : 'Cancel'}
+                      </button>
+                    </div>
                   </li>
                 ))}
               </ul>

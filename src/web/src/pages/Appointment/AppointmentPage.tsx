@@ -4,11 +4,13 @@ import { useNavigate, useParams } from 'react-router-dom'
 import {
   getAvailableAppointmentSlots,
   getAppointmentBookingContext,
+  getMyAppointmentBookings,
   bookAppointment,
   cancelAppointment,
   rescheduleAppointment,
   type AvailableAppointmentSlot,
   type AppointmentBookingContext,
+  type MyAppointmentBooking,
 } from '../../api/appointments'
 import { getTokenPayload } from '../../utils/authToken'
 import type { ApiError } from '../../types/api'
@@ -81,6 +83,8 @@ export function AppointmentPage() {
   const [bookingContextError, setBookingContextError] = useState<string | null>(null)
   const [selectedSlot, setSelectedSlot] = useState<AvailableAppointmentSlot | null>(null)
   const [currentAppointment, setCurrentAppointment] = useState<CurrentAppointment | null>(null)
+  const [currentAppointmentLoading, setCurrentAppointmentLoading] = useState(false)
+  const [currentAppointmentError, setCurrentAppointmentError] = useState<string | null>(null)
   const [booking, setBooking] = useState<BookingState>({ status: 'idle' })
   const [showCancelModal, setShowCancelModal] = useState(false)
   const [isCancelling, setIsCancelling] = useState(false)
@@ -109,6 +113,47 @@ export function AppointmentPage() {
       })
       .finally(() => {
         setBookingContextLoading(false)
+      })
+  }, [organisationId, appointmentProfileId])
+
+  useEffect(() => {
+    if (!isGuid(organisationId) || !isGuid(appointmentProfileId)) {
+      setCurrentAppointment(null)
+      setCurrentAppointmentError(null)
+      return
+    }
+
+    setCurrentAppointmentLoading(true)
+    setCurrentAppointmentError(null)
+
+    getMyAppointmentBookings()
+      .then(bookings => {
+        const matchingBooking = bookings
+          .filter((b: MyAppointmentBooking) =>
+            b.organisationId === organisationId &&
+            b.appointmentProfileId === appointmentProfileId)
+          .sort((a, b) => a.slotStart.localeCompare(b.slotStart))[0]
+
+        if (!matchingBooking) {
+          setCurrentAppointment(null)
+          return
+        }
+
+        setCurrentAppointment({
+          appointmentId: matchingBooking.appointmentId,
+          organisationId: matchingBooking.organisationId,
+          slotStart: matchingBooking.slotStart,
+          slotEnd: matchingBooking.slotEnd,
+        })
+
+        setSelectedDate(new Date(matchingBooking.slotStart))
+      })
+      .catch((err: ApiError) => {
+        setCurrentAppointment(null)
+        setCurrentAppointmentError(err.detail ?? 'Could not load your existing appointment.')
+      })
+      .finally(() => {
+        setCurrentAppointmentLoading(false)
       })
   }, [organisationId, appointmentProfileId])
 
@@ -356,6 +401,14 @@ export function AppointmentPage() {
             <h2>{isRescheduleMode ? 'New available slots' : 'Available slots'}</h2>
             <span>{toDateOnly(selectedDate)}</span>
           </div>
+
+          {currentAppointmentLoading && !currentAppointment && (
+            <div className={styles.stateCard}>Checking your existing booking...</div>
+          )}
+
+          {!currentAppointmentLoading && currentAppointmentError && (
+            <div className={`${styles.stateCard} ${styles.errorCard}`}>{currentAppointmentError}</div>
+          )}
 
           {slotsLoading && (
             <div className={styles.stateCard}>Loading slots...</div>
