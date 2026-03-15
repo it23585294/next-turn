@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NextTurn.API.Models.Appointments;
 using NextTurn.Application.Appointment.Commands.BookAppointment;
+using NextTurn.Application.Appointment.Commands.CancelAppointment;
 using NextTurn.Application.Appointment.Commands.RescheduleAppointment;
 using NextTurn.Application.Appointment.Queries.GetAvailableSlots;
 
@@ -85,6 +86,27 @@ public sealed class AppointmentsController : ControllerBase
             request.NewSlotEnd);
 
         var result = await _sender.Send(command, cancellationToken);
+        return Ok(result);
+    }
+
+    [HttpPost("{appointmentId:guid}/cancel")]
+    [ProducesResponseType(typeof(CancelAppointmentResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> CancelAppointment(
+        Guid appointmentId,
+        CancellationToken cancellationToken)
+    {
+        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier)
+                       ?? User.FindFirstValue("sub");
+
+        if (!Guid.TryParse(userIdClaim, out var userId))
+            return Unauthorized();
+
+        var command = new CancelAppointmentCommand(appointmentId, userId);
+        var result = await _sender.Send(command, cancellationToken);
+
         return Ok(result);
     }
 }
