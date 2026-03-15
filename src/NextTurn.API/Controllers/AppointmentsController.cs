@@ -5,7 +5,10 @@ using Microsoft.AspNetCore.Mvc;
 using NextTurn.API.Models.Appointments;
 using NextTurn.Application.Appointment.Commands.BookAppointment;
 using NextTurn.Application.Appointment.Commands.CancelAppointment;
+using NextTurn.Application.Appointment.Commands.ConfigureAppointmentSchedule;
 using NextTurn.Application.Appointment.Commands.RescheduleAppointment;
+using NextTurn.Application.Appointment.Common;
+using NextTurn.Application.Appointment.Queries.GetAppointmentSchedule;
 using NextTurn.Application.Appointment.Queries.GetAvailableSlots;
 
 namespace NextTurn.API.Controllers;
@@ -59,6 +62,52 @@ public sealed class AppointmentsController : ControllerBase
         var query = new GetAvailableSlotsQuery(organisationId, date);
         var result = await _sender.Send(query, cancellationToken);
 
+        return Ok(result);
+    }
+
+    [HttpGet("config")]
+    [Authorize(Roles = "OrgAdmin,SystemAdmin")]
+    [ProducesResponseType(typeof(GetAppointmentScheduleResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetScheduleConfig(CancellationToken cancellationToken)
+    {
+        var tenantIdClaim = User.FindFirstValue("tid");
+        if (!Guid.TryParse(tenantIdClaim, out var organisationId) || organisationId == Guid.Empty)
+            return Unauthorized();
+
+        var query = new GetAppointmentScheduleQuery(organisationId);
+        var result = await _sender.Send(query, cancellationToken);
+
+        return Ok(result);
+    }
+
+    [HttpPut("config")]
+    [Authorize(Roles = "OrgAdmin,SystemAdmin")]
+    [ProducesResponseType(typeof(ConfigureAppointmentScheduleResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> ConfigureSchedule(
+        [FromBody] ConfigureAppointmentScheduleRequest request,
+        CancellationToken cancellationToken)
+    {
+        var tenantIdClaim = User.FindFirstValue("tid");
+        if (!Guid.TryParse(tenantIdClaim, out var organisationId) || organisationId == Guid.Empty)
+            return Unauthorized();
+
+        var command = new ConfigureAppointmentScheduleCommand(
+            organisationId,
+            request.DayRules
+                .Select(r => new AppointmentDayRuleDto(
+                    r.DayOfWeek,
+                    r.IsEnabled,
+                    r.StartTime,
+                    r.EndTime,
+                    r.SlotDurationMinutes))
+                .ToList());
+
+        var result = await _sender.Send(command, cancellationToken);
         return Ok(result);
     }
 

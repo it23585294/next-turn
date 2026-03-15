@@ -2,4 +2,5 @@ namespace NextTurn.Application.Appointment.Queries.GetAvailableSlots;
 
 public sealed record AvailableSlot(
     DateTimeOffset SlotStart,
-    DateTimeOffset SlotEnd);
+    DateTimeOffset SlotEnd,
+    bool IsBooked);

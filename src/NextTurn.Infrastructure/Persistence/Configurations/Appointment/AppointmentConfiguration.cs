@@ -44,6 +44,6 @@ public sealed class AppointmentConfiguration : IEntityTypeConfiguration<Appointm
         builder.HasIndex(a => new { a.OrganisationId, a.SlotStart, a.SlotEnd })
             .HasDatabaseName("UX_Appointments_OrganisationId_SlotStart_SlotEnd_Active")
             .IsUnique()
-            .HasFilter("[Status] NOT IN ('Cancelled', 'Rescheduled')");
+            .HasFilter("[Status] <> 'Cancelled' AND [Status] <> 'Rescheduled'");
     }
 }

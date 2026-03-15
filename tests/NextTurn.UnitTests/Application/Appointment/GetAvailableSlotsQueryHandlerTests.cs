@@ -17,6 +17,10 @@ public sealed class GetAvailableSlotsQueryHandlerTests
     public async Task Handle_WhenNoAppointments_ReturnsAllSlots()
     {
         _appointmentRepositoryMock
+            .Setup(r => r.GetScheduleRulesAsync(OrganisationId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Array.Empty<NextTurn.Domain.Appointment.Entities.AppointmentScheduleRule>());
+
+        _appointmentRepositoryMock
             .Setup(r => r.GetByOrganisationAndDateAsync(OrganisationId, Date, It.IsAny<CancellationToken>()))
             .ReturnsAsync(Array.Empty<AppointmentEntity>());
 
@@ -25,10 +29,11 @@ public sealed class GetAvailableSlotsQueryHandlerTests
         var result = await handler.Handle(new GetAvailableSlotsQuery(OrganisationId, Date), CancellationToken.None);
 
         result.Should().HaveCount(16);
+        result.Should().OnlyContain(s => s.IsBooked == false);
     }
 
     [Fact]
-    public async Task Handle_WhenExactSlotBooked_RemovesThatSlot()
+    public async Task Handle_WhenExactSlotBooked_MarksThatSlotAsBooked()
     {
         var booked = AppointmentEntity.Create(
             OrganisationId,
@@ -37,26 +42,8 @@ public sealed class GetAvailableSlotsQueryHandlerTests
             new DateTimeOffset(2026, 4, 10, 10, 30, 0, TimeSpan.Zero));
 
         _appointmentRepositoryMock
-            .Setup(r => r.GetByOrganisationAndDateAsync(OrganisationId, Date, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new[] { booked });
-
-        var handler = new GetAvailableSlotsQueryHandler(_appointmentRepositoryMock.Object);
-
-        var result = await handler.Handle(new GetAvailableSlotsQuery(OrganisationId, Date), CancellationToken.None);
-
-        result.Should().NotContain(s =>
-            s.SlotStart == new DateTimeOffset(2026, 4, 10, 10, 0, 0, TimeSpan.Zero) &&
-            s.SlotEnd == new DateTimeOffset(2026, 4, 10, 10, 30, 0, TimeSpan.Zero));
-    }
-
-    [Fact]
-    public async Task Handle_WhenAppointmentOverlapsTwoSlots_RemovesBothSlots()
-    {
-        var booked = AppointmentEntity.Create(
-            OrganisationId,
-            Guid.NewGuid(),
-            new DateTimeOffset(2026, 4, 10, 9, 15, 0, TimeSpan.Zero),
-            new DateTimeOffset(2026, 4, 10, 9, 45, 0, TimeSpan.Zero));
+            .Setup(r => r.GetScheduleRulesAsync(OrganisationId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Array.Empty<NextTurn.Domain.Appointment.Entities.AppointmentScheduleRule>());
 
         _appointmentRepositoryMock
             .Setup(r => r.GetByOrganisationAndDateAsync(OrganisationId, Date, It.IsAny<CancellationToken>()))
@@ -66,12 +53,41 @@ public sealed class GetAvailableSlotsQueryHandlerTests
 
         var result = await handler.Handle(new GetAvailableSlotsQuery(OrganisationId, Date), CancellationToken.None);
 
-        result.Should().NotContain(s =>
-            s.SlotStart == new DateTimeOffset(2026, 4, 10, 9, 0, 0, TimeSpan.Zero) &&
-            s.SlotEnd == new DateTimeOffset(2026, 4, 10, 9, 30, 0, TimeSpan.Zero));
+        result.Should().ContainSingle(s =>
+            s.SlotStart == new DateTimeOffset(2026, 4, 10, 10, 0, 0, TimeSpan.Zero) &&
+            s.SlotEnd == new DateTimeOffset(2026, 4, 10, 10, 30, 0, TimeSpan.Zero) &&
+            s.IsBooked);
+    }
 
-        result.Should().NotContain(s =>
+    [Fact]
+    public async Task Handle_WhenAppointmentOverlapsTwoSlots_MarksBothAsBooked()
+    {
+        var booked = AppointmentEntity.Create(
+            OrganisationId,
+            Guid.NewGuid(),
+            new DateTimeOffset(2026, 4, 10, 9, 15, 0, TimeSpan.Zero),
+            new DateTimeOffset(2026, 4, 10, 9, 45, 0, TimeSpan.Zero));
+
+        _appointmentRepositoryMock
+            .Setup(r => r.GetScheduleRulesAsync(OrganisationId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Array.Empty<NextTurn.Domain.Appointment.Entities.AppointmentScheduleRule>());
+
+        _appointmentRepositoryMock
+            .Setup(r => r.GetByOrganisationAndDateAsync(OrganisationId, Date, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { booked });
+
+        var handler = new GetAvailableSlotsQueryHandler(_appointmentRepositoryMock.Object);
+
+        var result = await handler.Handle(new GetAvailableSlotsQuery(OrganisationId, Date), CancellationToken.None);
+
+        result.Should().ContainSingle(s =>
+            s.SlotStart == new DateTimeOffset(2026, 4, 10, 9, 0, 0, TimeSpan.Zero) &&
+            s.SlotEnd == new DateTimeOffset(2026, 4, 10, 9, 30, 0, TimeSpan.Zero) &&
+            s.IsBooked);
+
+        result.Should().ContainSingle(s =>
             s.SlotStart == new DateTimeOffset(2026, 4, 10, 9, 30, 0, TimeSpan.Zero) &&
-            s.SlotEnd == new DateTimeOffset(2026, 4, 10, 10, 0, 0, TimeSpan.Zero));
+            s.SlotEnd == new DateTimeOffset(2026, 4, 10, 10, 0, 0, TimeSpan.Zero) &&
+            s.IsBooked);
     }
 }

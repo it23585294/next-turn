@@ -19,7 +19,7 @@ namespace NextTurn.Infrastructure.Migrations
                 table: "Appointments",
                 columns: new[] { "OrganisationId", "SlotStart", "SlotEnd" },
                 unique: true,
-                filter: "[Status] NOT IN ('Cancelled', 'Rescheduled')");
+                filter: "[Status] <> 'Cancelled' AND [Status] <> 'Rescheduled'");
         }
 
         /// <inheritdoc />

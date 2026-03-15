@@ -4,6 +4,20 @@ import { getToken } from '../utils/authToken'
 export interface AvailableAppointmentSlot {
   slotStart: string
   slotEnd: string
+  isBooked: boolean
+}
+
+export interface AppointmentDayRule {
+  dayOfWeek: number
+  isEnabled: boolean
+  startTime: string
+  endTime: string
+  slotDurationMinutes: number
+}
+
+export interface AppointmentScheduleConfig {
+  shareableLink: string
+  dayRules: AppointmentDayRule[]
 }
 
 export interface BookAppointmentResult {
@@ -19,6 +33,10 @@ export interface RescheduleAppointmentResult {
 export interface CancelAppointmentResult {
   appointmentId: string
   lateCancellation: boolean
+}
+
+export interface ConfigureAppointmentScheduleResult {
+  shareableLink: string
 }
 
 export interface BookAppointmentBody {
@@ -99,6 +117,47 @@ export async function cancelAppointment(
     const { data } = await apiClient.post<CancelAppointmentResult>(
       `/appointments/${appointmentId}/cancel`,
       null,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'X-Tenant-Id': organisationId,
+        },
+      }
+    )
+
+    return data
+  } catch (err) {
+    throw parseApiError(err)
+  }
+}
+
+export async function getAppointmentSchedule(
+  organisationId: string,
+): Promise<AppointmentScheduleConfig> {
+  try {
+    const token = getToken()
+    const { data } = await apiClient.get<AppointmentScheduleConfig>('/appointments/config', {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'X-Tenant-Id': organisationId,
+      },
+    })
+
+    return data
+  } catch (err) {
+    throw parseApiError(err)
+  }
+}
+
+export async function configureAppointmentSchedule(
+  organisationId: string,
+  dayRules: AppointmentDayRule[],
+): Promise<ConfigureAppointmentScheduleResult> {
+  try {
+    const token = getToken()
+    const { data } = await apiClient.put<ConfigureAppointmentScheduleResult>(
+      '/appointments/config',
+      { dayRules },
       {
         headers: {
           Authorization: `Bearer ${token}`,

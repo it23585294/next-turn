@@ -48,8 +48,12 @@ function formatSlotLabel(slot: AvailableAppointmentSlot): string {
   return `${start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
 }
 
+function sameSlot(a: { slotStart: string; slotEnd: string }, b: { slotStart: string; slotEnd: string }): boolean {
+  return a.slotStart === b.slotStart && a.slotEnd === b.slotEnd
+}
+
 function formatSlotRange(slotStart: string, slotEnd: string): string {
-  return formatSlotLabel({ slotStart, slotEnd })
+  return formatSlotLabel({ slotStart, slotEnd, isBooked: false })
 }
 
 export function AppointmentPage() {
@@ -115,7 +119,7 @@ export function AppointmentPage() {
   }
 
   async function handleConfirmBooking() {
-    if (!selectedSlot || !isGuid(organisationId)) return
+    if (!selectedSlot || selectedSlot.isBooked || !isGuid(organisationId)) return
 
     setBooking({ status: 'booking' })
 
@@ -163,9 +167,7 @@ export function AppointmentPage() {
         })
       }
 
-      setSlots(prev =>
-        prev.filter(s => s.slotStart !== selectedSlot.slotStart || s.slotEnd !== selectedSlot.slotEnd)
-      )
+      setSlots(prev => prev.map(s => sameSlot(s, selectedSlot) ? { ...s, isBooked: true } : s))
       setSelectedSlot(null)
     } catch (err) {
       const apiErr = err as ApiError
@@ -186,15 +188,20 @@ export function AppointmentPage() {
 
       if (toDateOnly(new Date(currentAppointment.slotStart)) === toDateOnly(selectedDate)) {
         setSlots(prev => {
-          const exists = prev.some(
-            s => s.slotStart === currentAppointment.slotStart && s.slotEnd === currentAppointment.slotEnd,
-          )
+          const exists = prev.some(s =>
+            s.slotStart === currentAppointment.slotStart && s.slotEnd === currentAppointment.slotEnd)
 
-          if (exists) return prev
+          if (exists) {
+            return prev.map(s =>
+              s.slotStart === currentAppointment.slotStart && s.slotEnd === currentAppointment.slotEnd
+                ? { ...s, isBooked: false }
+                : s)
+          }
 
           return [...prev, {
             slotStart: currentAppointment.slotStart,
             slotEnd: currentAppointment.slotEnd,
+            isBooked: false,
           }].sort((a, b) => a.slotStart.localeCompare(b.slotStart))
         })
       }
@@ -327,13 +334,14 @@ export function AppointmentPage() {
                   <button
                     key={`${slot.slotStart}-${slot.slotEnd}`}
                     type="button"
-                    className={`${styles.slotBtn} ${selected ? styles.slotBtnSelected : ''}`}
+                    className={`${styles.slotBtn} ${slot.isBooked ? styles.slotBtnBooked : ''} ${selected ? styles.slotBtnSelected : ''}`}
+                    disabled={slot.isBooked}
                     onClick={() => {
                       setSelectedSlot(slot)
                       setBooking({ status: 'idle' })
                     }}
                   >
-                    {formatSlotLabel(slot)}
+                    {formatSlotLabel(slot)}{slot.isBooked ? ' (Booked)' : ''}
                   </button>
                 )
               })}

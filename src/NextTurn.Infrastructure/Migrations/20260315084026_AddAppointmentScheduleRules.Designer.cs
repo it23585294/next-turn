@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NextTurn.Infrastructure.Persistence;
 
@@ -11,9 +12,11 @@ using NextTurn.Infrastructure.Persistence;
 namespace NextTurn.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260315084026_AddAppointmentScheduleRules")]
+    partial class AddAppointmentScheduleRules
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -59,7 +62,7 @@ namespace NextTurn.Infrastructure.Migrations
                     b.HasIndex("OrganisationId", "SlotStart", "SlotEnd")
                         .IsUnique()
                         .HasDatabaseName("UX_Appointments_OrganisationId_SlotStart_SlotEnd_Active")
-                        .HasFilter("[Status] <> 'Cancelled' AND [Status] <> 'Rescheduled'");
+                        .HasFilter("[Status] NOT IN ('Cancelled', 'Rescheduled')");
 
                     b.ToTable("Appointments", (string)null);
                 });

@@ -3,6 +3,7 @@ using NextTurn.Domain.Appointment.Enums;
 using NextTurn.Domain.Appointment.Repositories;
 using NextTurn.Infrastructure.Persistence;
 using AppointmentEntity = NextTurn.Domain.Appointment.Entities.Appointment;
+using AppointmentScheduleRule = NextTurn.Domain.Appointment.Entities.AppointmentScheduleRule;
 
 namespace NextTurn.Infrastructure.Appointment;
 
@@ -86,5 +87,41 @@ public sealed class AppointmentRepository : IAppointmentRepository
                 startOfDay < a.SlotEnd)
             .OrderBy(a => a.SlotStart)
             .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<AppointmentScheduleRule>> GetScheduleRulesAsync(
+        Guid organisationId,
+        CancellationToken cancellationToken)
+    {
+        return await _context.AppointmentScheduleRules
+            .Where(r => r.OrganisationId == organisationId)
+            .OrderBy(r => r.DayOfWeek)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task UpsertScheduleRulesAsync(
+        Guid organisationId,
+        IReadOnlyList<AppointmentScheduleRule> rules,
+        CancellationToken cancellationToken)
+    {
+        var existing = await _context.AppointmentScheduleRules
+            .Where(r => r.OrganisationId == organisationId)
+            .ToListAsync(cancellationToken);
+
+        foreach (var rule in rules)
+        {
+            var matched = existing.FirstOrDefault(e => e.DayOfWeek == rule.DayOfWeek);
+            if (matched is null)
+            {
+                await _context.AppointmentScheduleRules.AddAsync(rule, cancellationToken);
+                continue;
+            }
+
+            matched.Configure(
+                rule.IsEnabled,
+                rule.StartTime,
+                rule.EndTime,
+                rule.SlotDurationMinutes);
+        }
     }
 }

@@ -1,4 +1,5 @@
 using AppointmentEntity = NextTurn.Domain.Appointment.Entities.Appointment;
+using AppointmentScheduleRule = NextTurn.Domain.Appointment.Entities.AppointmentScheduleRule;
 
 namespace NextTurn.Domain.Appointment.Repositories;
 
@@ -29,5 +30,14 @@ public interface IAppointmentRepository
     Task<IReadOnlyList<AppointmentEntity>> GetByOrganisationAndDateAsync(
         Guid organisationId,
         DateOnly date,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<AppointmentScheduleRule>> GetScheduleRulesAsync(
+        Guid organisationId,
+        CancellationToken cancellationToken);
+
+    Task UpsertScheduleRulesAsync(
+        Guid organisationId,
+        IReadOnlyList<AppointmentScheduleRule> rules,
         CancellationToken cancellationToken);
 }

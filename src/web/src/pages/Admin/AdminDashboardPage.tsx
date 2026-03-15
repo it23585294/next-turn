@@ -12,6 +12,11 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { createQueue, getOrgQueues, type OrgQueueSummary } from '../../api/queues'
+import {
+  getAppointmentSchedule,
+  configureAppointmentSchedule,
+  type AppointmentDayRule,
+} from '../../api/appointments'
 import type { ApiError } from '../../types/api'
 import { clearToken, getTokenPayload } from '../../utils/authToken'
 import logoImg from '../../assets/nextTurn-logo.png'
@@ -31,6 +36,12 @@ const defaultForm: CreateForm = {
   averageServiceTimeSeconds: '300',
 }
 
+const dayLabels = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+
+function toInputTime(time: string): string {
+  return time.slice(0, 5)
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function AdminDashboardPage() {
@@ -47,6 +58,14 @@ export function AdminDashboardPage() {
   const [newLink,     setNewLink]     = useState<string | null>(null)
   const [copiedId,    setCopiedId]    = useState<string | null>(null)
 
+  const [appointmentRules, setAppointmentRules] = useState<AppointmentDayRule[]>([])
+  const [appointmentShareLink, setAppointmentShareLink] = useState<string | null>(null)
+  const [scheduleLoading, setScheduleLoading] = useState(true)
+  const [scheduleSaving, setScheduleSaving] = useState(false)
+  const [scheduleError, setScheduleError] = useState<string | null>(null)
+  const [scheduleSuccess, setScheduleSuccess] = useState<string | null>(null)
+  const [copiedAppointmentLink, setCopiedAppointmentLink] = useState(false)
+
   // Redirect if token is invalid (defensive — ProtectedRoute should already catch this)
   if (!payload) {
     clearToken()
@@ -62,6 +81,14 @@ export function AdminDashboardPage() {
     getOrgQueues(tenantId)
       .then(setQueues)
       .catch(() => setLoadError('Could not load queues. Please refresh the page.'))
+
+    getAppointmentSchedule(tenantId)
+      .then(config => {
+        setAppointmentRules(config.dayRules)
+        setAppointmentShareLink(config.shareableLink)
+      })
+      .catch(() => setScheduleError('Could not load appointment schedule.'))
+      .finally(() => setScheduleLoading(false))
   }, [tenantId])
 
   // ── Handlers ──────────────────────────────────────────────────────────────
@@ -128,6 +155,39 @@ export function AdminDashboardPage() {
     await navigator.clipboard.writeText(fullUrl)
     setCopiedId(queue.queueId)
     setTimeout(() => setCopiedId(null), 2000)
+  }
+
+  async function copyAppointmentLink() {
+    if (!appointmentShareLink) return
+
+    await navigator.clipboard.writeText(`${window.location.origin}${appointmentShareLink}`)
+    setCopiedAppointmentLink(true)
+    setTimeout(() => setCopiedAppointmentLink(false), 2000)
+  }
+
+  function updateRule(dayOfWeek: number, changes: Partial<AppointmentDayRule>) {
+    setAppointmentRules(prev => prev.map(rule =>
+      rule.dayOfWeek === dayOfWeek ? { ...rule, ...changes } : rule))
+    setScheduleSuccess(null)
+  }
+
+  async function saveSchedule() {
+    if (!tenantId || appointmentRules.length !== 7) return
+
+    setScheduleSaving(true)
+    setScheduleError(null)
+    setScheduleSuccess(null)
+
+    try {
+      const result = await configureAppointmentSchedule(tenantId, appointmentRules)
+      setAppointmentShareLink(result.shareableLink)
+      setScheduleSuccess('Appointment settings saved.')
+    } catch (err) {
+      const apiErr = err as ApiError
+      setScheduleError(apiErr.detail ?? 'Could not save appointment settings.')
+    } finally {
+      setScheduleSaving(false)
+    }
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -277,6 +337,90 @@ export function AdminDashboardPage() {
               ))}
             </ul>
           )}
+        </section>
+
+        <section className={styles.section}>
+          <h2 className={styles.sectionTitle}>Appointment Booking Settings</h2>
+
+          {scheduleError && (
+            <div className={styles.errorBanner} role="alert">{scheduleError}</div>
+          )}
+
+          {scheduleSuccess && (
+            <div className={styles.successBanner} role="status">{scheduleSuccess}</div>
+          )}
+
+          {appointmentShareLink && (
+            <div className={styles.successBanner} role="status">
+              <span>Shareable appointment link:</span>
+              <strong className={styles.linkText}>{window.location.origin}{appointmentShareLink}</strong>
+              <button className={styles.copyBtn} type="button" onClick={copyAppointmentLink}>
+                {copiedAppointmentLink ? '✓ Copied!' : 'Copy Link'}
+              </button>
+            </div>
+          )}
+
+          {scheduleLoading && <p className={styles.emptyNote}>Loading schedule...</p>}
+
+          {!scheduleLoading && appointmentRules.length > 0 && (
+            <div className={styles.queueList}>
+              {appointmentRules
+                .slice()
+                .sort((a, b) => a.dayOfWeek - b.dayOfWeek)
+                .map(rule => (
+                  <div key={rule.dayOfWeek} className={styles.queueCard}>
+                    <div className={styles.queueCardLeft}>
+                      <span className={styles.queueName}>{dayLabels[rule.dayOfWeek]}</span>
+                    </div>
+                    <div className={styles.formGrid}>
+                      <label className={styles.label}>
+                        <input
+                          type="checkbox"
+                          checked={rule.isEnabled}
+                          onChange={e => updateRule(rule.dayOfWeek, { isEnabled: e.target.checked })}
+                        />{' '}
+                        Enabled
+                      </label>
+
+                      <input
+                        className={styles.input}
+                        type="time"
+                        value={toInputTime(rule.startTime)}
+                        disabled={!rule.isEnabled}
+                        onChange={e => updateRule(rule.dayOfWeek, { startTime: `${e.target.value}:00` })}
+                      />
+
+                      <input
+                        className={styles.input}
+                        type="time"
+                        value={toInputTime(rule.endTime)}
+                        disabled={!rule.isEnabled}
+                        onChange={e => updateRule(rule.dayOfWeek, { endTime: `${e.target.value}:00` })}
+                      />
+
+                      <input
+                        className={styles.input}
+                        type="number"
+                        min={5}
+                        max={240}
+                        value={rule.slotDurationMinutes}
+                        disabled={!rule.isEnabled}
+                        onChange={e => updateRule(rule.dayOfWeek, { slotDurationMinutes: parseInt(e.target.value || '30') })}
+                      />
+                    </div>
+                  </div>
+                ))}
+            </div>
+          )}
+
+          <button
+            className={styles.createBtn}
+            type="button"
+            onClick={saveSchedule}
+            disabled={scheduleSaving || scheduleLoading || appointmentRules.length !== 7}
+          >
+            {scheduleSaving ? 'Saving…' : 'Save Appointment Settings'}
+          </button>
         </section>
 
       </main>

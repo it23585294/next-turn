@@ -1,0 +1,3 @@
+namespace NextTurn.Application.Appointment.Commands.ConfigureAppointmentSchedule;
+
+public sealed record ConfigureAppointmentScheduleResult(string ShareableLink);

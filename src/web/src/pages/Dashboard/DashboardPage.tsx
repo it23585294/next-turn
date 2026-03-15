@@ -71,6 +71,9 @@ export function DashboardPage() {
   const [linkInput, setLinkInput] = useState('')
   const [linkError, setLinkError] = useState<string | null>(null)
 
+  const [appointmentLinkInput, setAppointmentLinkInput] = useState('')
+  const [appointmentLinkError, setAppointmentLinkError] = useState<string | null>(null)
+
   function handleJoinByLink() {
     setLinkError(null)
     try {
@@ -82,6 +85,21 @@ export function DashboardPage() {
       navigate(`/queues/${linkTenant}/${linkQueue}`)
     } catch {
       setLinkError('Invalid queue link. Paste the full URL or the /queues/… path.')
+    }
+  }
+
+  function handleOpenAppointmentByLink() {
+    setAppointmentLinkError(null)
+    try {
+      // Accept full URLs or just /appointments/:tenantId path.
+      const url = new URL(appointmentLinkInput.includes('://') ? appointmentLinkInput : `https://x.com${appointmentLinkInput}`)
+      const match = url.pathname.match(/\/appointments\/([^/]+)/)
+      if (!match) throw new Error('invalid')
+
+      const [, linkTenant] = match
+      navigate(`/appointments/${linkTenant}`)
+    } catch {
+      setAppointmentLinkError('Invalid appointment link. Paste the full URL or the /appointments/… path.')
     }
   }
 
@@ -203,6 +221,34 @@ export function DashboardPage() {
               </button>
             </div>
             {linkError && <p className={styles.joinWidgetError}>{linkError}</p>}
+          </section>
+
+          <section className={styles.joinWidget} aria-label="Open appointment booking by link">
+            <div className={styles.sectionHeader}>
+              <CalendarIcon />
+              <h2 className={styles.sectionTitle}>Open Appointment by Link</h2>
+            </div>
+            <p className={styles.joinWidgetDesc}>Have an appointment booking URL? Paste it here.</p>
+            <div className={styles.joinWidgetRow}>
+              <input
+                className={styles.joinWidgetInput}
+                type="text"
+                placeholder="https://… or /appointments/tenant"
+                value={appointmentLinkInput}
+                onChange={e => { setAppointmentLinkInput(e.target.value); setAppointmentLinkError(null) }}
+                onKeyDown={e => e.key === 'Enter' && handleOpenAppointmentByLink()}
+                aria-label="Appointment link"
+              />
+              <button
+                className={styles.joinWidgetBtn}
+                onClick={handleOpenAppointmentByLink}
+                type="button"
+                disabled={!appointmentLinkInput.trim()}
+              >
+                Go
+              </button>
+            </div>
+            {appointmentLinkError && <p className={styles.joinWidgetError}>{appointmentLinkError}</p>}
           </section>
 
           <section className={styles.joinWidget} aria-label="Book an appointment">
