@@ -94,4 +94,21 @@ public interface IQueueRepository
     /// </summary>
     Task<IReadOnlyList<(Guid QueueId, Guid OrganisationId, string QueueName, int TicketNumber, string Status)>>
         GetUserActiveEntriesAsync(Guid userId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Returns the currently serving entry in a queue, or <c>null</c> if none is being served.
+    /// </summary>
+    Task<QueueEntry?> GetCurrentServingEntryAsync(Guid queueId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Returns the next waiting entry (lowest ticket number) in a queue, or <c>null</c>
+    /// if no one is waiting.
+    /// </summary>
+    Task<QueueEntry?> GetNextWaitingEntryAsync(Guid queueId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Returns all waiting entries for a queue ordered by ticket number.
+    /// Used by the staff dashboard to show who is next.
+    /// </summary>
+    Task<IReadOnlyList<QueueEntry>> GetWaitingEntriesAsync(Guid queueId, CancellationToken cancellationToken);
 }

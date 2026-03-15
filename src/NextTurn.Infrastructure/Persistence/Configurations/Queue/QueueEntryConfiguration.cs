@@ -65,5 +65,12 @@ public class QueueEntryConfiguration : IEntityTypeConfiguration<QueueEntry>
         // Separate index for the HasActiveEntryAsync duplicate-join check.
         builder.HasIndex(e => new { e.QueueId, e.UserId })
             .HasDatabaseName("IX_QueueEntries_QueueId_UserId");
+
+        // Enforce "at most one Serving entry per queue" at the DB layer.
+        // The filtered unique index is a concurrency safety net for parallel staff actions.
+        builder.HasIndex(e => e.QueueId)
+            .HasDatabaseName("UX_QueueEntries_QueueId_OneServing")
+            .IsUnique()
+            .HasFilter("[Status] = 'Serving'");
     }
 }

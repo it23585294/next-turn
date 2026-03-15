@@ -172,4 +172,37 @@ public sealed class QueueRepository : IQueueRepository
             .Select(x => ValueTuple.Create(x.Id, x.OrganisationId, x.Name, x.TicketNumber, x.StatusStr))
             .ToListAsync(cancellationToken);
     }
+
+    /// <inheritdoc/>
+    public async Task<QueueEntry?> GetCurrentServingEntryAsync(
+        Guid queueId,
+        CancellationToken cancellationToken)
+    {
+        return await _context.QueueEntries
+            .FirstOrDefaultAsync(
+                e => e.QueueId == queueId && e.Status == QueueEntryStatus.Serving,
+                cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task<QueueEntry?> GetNextWaitingEntryAsync(
+        Guid queueId,
+        CancellationToken cancellationToken)
+    {
+        return await _context.QueueEntries
+            .Where(e => e.QueueId == queueId && e.Status == QueueEntryStatus.Waiting)
+            .OrderBy(e => e.TicketNumber)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task<IReadOnlyList<QueueEntry>> GetWaitingEntriesAsync(
+        Guid queueId,
+        CancellationToken cancellationToken)
+    {
+        return await _context.QueueEntries
+            .Where(e => e.QueueId == queueId && e.Status == QueueEntryStatus.Waiting)
+            .OrderBy(e => e.TicketNumber)
+            .ToListAsync(cancellationToken);
+    }
 }

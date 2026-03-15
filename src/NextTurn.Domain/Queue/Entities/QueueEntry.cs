@@ -89,4 +89,46 @@ public class QueueEntry
 
         Status = QueueEntryStatus.Cancelled;
     }
+
+    /// <summary>
+    /// Marks a waiting ticket as currently being served.
+    /// </summary>
+    /// <exception cref="DomainException">
+    /// Thrown when the entry is not in <see cref="QueueEntryStatus.Waiting"/>.
+    /// </exception>
+    public void StartServing()
+    {
+        if (Status != QueueEntryStatus.Waiting)
+            throw new DomainException("Only waiting queue entries can be moved to serving.");
+
+        Status = QueueEntryStatus.Serving;
+    }
+
+    /// <summary>
+    /// Marks a currently serving ticket as served.
+    /// </summary>
+    /// <exception cref="DomainException">
+    /// Thrown when the entry is not in <see cref="QueueEntryStatus.Serving"/>.
+    /// </exception>
+    public void MarkServed()
+    {
+        if (Status != QueueEntryStatus.Serving)
+            throw new DomainException("Only a serving queue entry can be marked as served.");
+
+        Status = QueueEntryStatus.Served;
+    }
+
+    /// <summary>
+    /// Marks a currently serving ticket as no-show.
+    /// </summary>
+    /// <exception cref="DomainException">
+    /// Thrown when the entry is not in <see cref="QueueEntryStatus.Serving"/>.
+    /// </exception>
+    public void MarkNoShow()
+    {
+        if (Status != QueueEntryStatus.Serving)
+            throw new DomainException("Only a serving queue entry can be marked as no-show.");
+
+        Status = QueueEntryStatus.NoShow;
+    }
 }
