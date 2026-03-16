@@ -111,4 +111,4 @@ jobs:
 
       - name: Run Newman contract tests
         if: hashFiles('tests/postman/*.json') != ''
-        run: npx newman run tests/postman/NextTurn.postman_collection.json
+        run: npx newman run tests/postman/NextTurn.postman_collection.json -e tests/postman/nextturn.postman_environment.json
