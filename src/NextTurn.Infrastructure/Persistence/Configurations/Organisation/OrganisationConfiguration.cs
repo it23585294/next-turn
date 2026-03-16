@@ -25,11 +25,19 @@ public class OrganisationConfiguration : IEntityTypeConfiguration<OrganisationEn
             .IsRequired()
             .HasMaxLength(200);
 
+        builder.Property(o => o.Slug)
+            .IsRequired()
+            .HasMaxLength(64);
+
         // Unique index on Name — enforced at the DB level as a safety net.
         // The duplicate-name check in the command handler fires first (domain boundary).
         builder.HasIndex(o => o.Name)
             .IsUnique()
             .HasDatabaseName("IX_Organisations_Name");
+
+        builder.HasIndex(o => o.Slug)
+            .IsUnique()
+            .HasDatabaseName("IX_Organisations_Slug");
 
         // Store Status as a string (e.g. "PendingApproval") — self-documenting in the DB.
         builder.Property(o => o.Status)

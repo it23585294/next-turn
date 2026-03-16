@@ -9,7 +9,7 @@
  *  /login/:tenantId        → LoginPage    (org-member)
  *  /dashboard              → ProtectedRoute → DashboardPage (consumer user, no tenantId)
  *  /dashboard/:tenantId    → ProtectedRoute → DashboardPage
- *  /staff/:tenantId        → ProtectedRoute (Staff+)    → stub
+ *  /staff/:tenantId        → ProtectedRoute (Staff+)    → StaffDashboardPage
  *  /admin/:tenantId        → ProtectedRoute (OrgAdmin+) → AdminDashboardPage
  *  /system/:tenantId       → ProtectedRoute (SystemAdmin) → stub
  *  /queues/:tenantId/:queueId → ProtectedRoute → QueuePage
@@ -28,13 +28,15 @@ import { AccessDeniedPage }     from './pages/AccessDenied'
 import { OrgRegistrationPage }  from './pages/OrgRegistration'
 import { ProtectedRoute }       from './components/ProtectedRoute'
 import { QueuePage }            from './pages/Queue'
+import { AppointmentPage }      from './pages/Appointment'
 import { AdminDashboardPage }   from './pages/Admin'
+import { StaffDashboardPage }   from './pages/Staff'
+import { StaffInviteAcceptPage } from './pages/StaffInviteAccept'
+import { OrgLoginLookupPage }   from './pages/OrgLoginLookup'
 import { TermsPage, PrivacyPage } from './pages/Legal'
 
 // ── Role-restricted stub pages ────────────────────────────────────────────────
-// Temporary placeholders so the route guards have real targets during NT-12
-// testing and the sprint demo. Replace with real feature pages in Sprint 2+.
-const StaffStub     = () => <main style={{ padding: '2rem' }}><h1>Staff Area — Sprint 2</h1></main>
+// System admin area is still a placeholder until the corresponding story lands.
 const SystemAdminStub = () => <main style={{ padding: '2rem' }}><h1>System Area — Sprint 2</h1></main>
 
 function App() {
@@ -49,6 +51,7 @@ function App() {
       {/* Org-member auth — scoped to a specific org */}
       <Route path="/register/:tenantId" element={<RegisterPage />} />
       <Route path="/login/:tenantId"    element={<LoginPage />} />
+      <Route path="/login/o/:orgSlug"   element={<LoginPage />} />
 
       {/* Any authenticated user */}
       <Route
@@ -73,7 +76,7 @@ function App() {
         path="/staff/:tenantId"
         element={
           <ProtectedRoute allowedRoles={['Staff', 'OrgAdmin', 'SystemAdmin']}>
-            <StaffStub />
+            <StaffDashboardPage />
           </ProtectedRoute>
         }
       />
@@ -108,8 +111,38 @@ function App() {
         }
       />
 
+      <Route
+        path="/appointments"
+        element={
+          <ProtectedRoute>
+            <AppointmentPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/appointments/:tenantId"
+        element={
+          <ProtectedRoute>
+            <AppointmentPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/appointments/:tenantId/:appointmentProfileId"
+        element={
+          <ProtectedRoute>
+            <AppointmentPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route path="/staff/invite/accept" element={<StaffInviteAcceptPage />} />
+
       {/* Public — no tenant context required; org doesn't exist yet */}
       <Route path="/register-org" element={<OrgRegistrationPage />} />
+      <Route path="/find-org-login" element={<OrgLoginLookupPage />} />
 
       {/* Legal */}
       <Route path="/terms"   element={<TermsPage />} />

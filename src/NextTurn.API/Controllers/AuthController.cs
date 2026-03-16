@@ -4,10 +4,16 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using NextTurn.API.Models.Auth;
 using NextTurn.Application.Auth;
+using NextTurn.Application.Auth.Commands.CreateStaffUser;
+using NextTurn.Application.Auth.Commands.InviteStaffUser;
+using NextTurn.Application.Auth.Commands.AcceptStaffInvite;
+using NextTurn.Application.Auth.Commands.DeactivateStaffUser;
 using NextTurn.Application.Auth.Commands.LoginGlobalUser;
 using NextTurn.Application.Auth.Commands.LoginUser;
+using NextTurn.Application.Auth.Commands.ReactivateStaffUser;
 using NextTurn.Application.Auth.Commands.RegisterGlobalUser;
 using NextTurn.Application.Auth.Commands.RegisterUser;
+using NextTurn.Application.Auth.Queries.ListStaffUsers;
 
 namespace NextTurn.API.Controllers;
 
@@ -178,5 +184,116 @@ public sealed class AuthController : ControllerBase
             result.Role);
 
         return Ok(response);
+    }
+
+    /// <summary>
+    /// Create a staff account inside the authenticated org admin's organisation.
+    /// </summary>
+    [HttpPost("staff")]
+    [Authorize(Roles = "OrgAdmin,SystemAdmin")]
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> CreateStaffUser(
+        [FromBody] CreateStaffUserRequest request,
+        CancellationToken cancellationToken)
+    {
+        var command = new CreateStaffUserCommand(
+            request.Name,
+            request.Email,
+            request.Phone,
+            request.Password);
+
+        await _sender.Send(command, cancellationToken);
+
+        return StatusCode(StatusCodes.Status201Created);
+    }
+
+    /// <summary>
+    /// Invite a staff user to set up their own password via secure invite link.
+    /// </summary>
+    [HttpPost("staff/invite")]
+    [Authorize(Roles = "OrgAdmin,SystemAdmin")]
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> InviteStaffUser(
+        [FromBody] InviteStaffUserRequest request,
+        CancellationToken cancellationToken)
+    {
+        var command = new InviteStaffUserCommand(request.Name, request.Email, request.Phone);
+        var result = await _sender.Send(command, cancellationToken);
+        return StatusCode(StatusCodes.Status201Created, result);
+    }
+
+    /// <summary>
+    /// Accept a staff invite and set the initial password.
+    /// </summary>
+    [HttpPost("staff/invite/accept")]
+    [AllowAnonymous]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> AcceptStaffInvite(
+        [FromBody] AcceptStaffInviteRequest request,
+        CancellationToken cancellationToken)
+    {
+        var command = new AcceptStaffInviteCommand(request.Token, request.Password);
+        await _sender.Send(command, cancellationToken);
+        return NoContent();
+    }
+
+    /// <summary>
+    /// List staff accounts for the authenticated organisation.
+    /// </summary>
+    [HttpGet("staff")]
+    [Authorize(Roles = "OrgAdmin,SystemAdmin")]
+    [ProducesResponseType(typeof(IReadOnlyList<StaffUserSummary>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> ListStaffUsers(CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new ListStaffUsersQuery(), cancellationToken);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Deactivate a staff account in the authenticated organisation.
+    /// </summary>
+    [HttpPost("staff/{userId:guid}/deactivate")]
+    [Authorize(Roles = "OrgAdmin,SystemAdmin")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> DeactivateStaffUser(
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        await _sender.Send(new DeactivateStaffUserCommand(userId), cancellationToken);
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Reactivate a staff account in the authenticated organisation.
+    /// </summary>
+    [HttpPost("staff/{userId:guid}/reactivate")]
+    [Authorize(Roles = "OrgAdmin,SystemAdmin")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> ReactivateStaffUser(
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        await _sender.Send(new ReactivateStaffUserCommand(userId), cancellationToken);
+        return NoContent();
     }
 }

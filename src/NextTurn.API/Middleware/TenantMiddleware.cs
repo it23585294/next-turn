@@ -43,17 +43,55 @@ public sealed class TenantMiddleware
 
     public async Task InvokeAsync(HttpContext context)
     {
-        // ── 1. Try X-Tenant-Id header first ──────────────────────────────────
-        // The header takes priority so that pages operating on a specific org's
-        // resources (e.g. queue operations) can always supply the correct tenant,
-        // even when the authenticated user's JWT 'tid' belongs to a different org
-        // (e.g. a consumer user with tid=Guid.Empty joining another org's queue).
-        var tenantId = TryResolveFromHeader(context.Request);
+        var claimTenantId = TryResolveFromClaims(context.User);
+        var headerTenantId = TryResolveFromHeader(context.Request);
+        var role = context.User.FindFirstValue("role");
 
-        // ── 2. Fallback to JWT 'tid' claim ────────────────────────────────────
-        if (tenantId == null)
+        Guid? tenantId;
+
+        // Staff and org admins are strictly scoped to the tenant in their JWT.
+        if (context.User.Identity?.IsAuthenticated == true && (role == "Staff" || role == "OrgAdmin"))
         {
-            tenantId = TryResolveFromClaims(context.User);
+            if (claimTenantId == null || claimTenantId == Guid.Empty)
+            {
+                context.Response.StatusCode = StatusCodes.Status400BadRequest;
+                context.Response.ContentType = "application/json";
+
+                var error = new
+                {
+                    type = "https://tools.ietf.org/html/rfc9110#section-15.5.1",
+                    title = "Bad Request",
+                    status = 400,
+                    detail = "Authenticated staff/admin tokens must include a valid tenant claim."
+                };
+
+                await context.Response.WriteAsync(JsonSerializer.Serialize(error));
+                return;
+            }
+
+            if (headerTenantId != null && headerTenantId != claimTenantId)
+            {
+                context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                context.Response.ContentType = "application/json";
+
+                var error = new
+                {
+                    type = "https://tools.ietf.org/html/rfc9110#section-15.5.4",
+                    title = "Forbidden",
+                    status = 403,
+                    detail = "Staff and org admin users can only access resources in their own organisation."
+                };
+
+                await context.Response.WriteAsync(JsonSerializer.Serialize(error));
+                return;
+            }
+
+            tenantId = claimTenantId;
+        }
+        else
+        {
+            // For consumer users and unauthenticated flows, header-first behaviour is retained.
+            tenantId = headerTenantId ?? claimTenantId;
         }
 
         // ── 3. Reject if unresolved ───────────────────────────────────────────

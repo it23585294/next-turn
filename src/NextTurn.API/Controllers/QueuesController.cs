@@ -3,11 +3,22 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NextTurn.API.Models.Queues;
+using NextTurn.Application.Queue.Commands.CallNext;
 using NextTurn.Application.Queue.Commands.CreateQueue;
 using NextTurn.Application.Queue.Commands.JoinQueue;
+using NextTurn.Application.Queue.Commands.LeaveQueue;
+using NextTurn.Application.Queue.Commands.MarkNoShow;
+using NextTurn.Application.Queue.Commands.MarkServed;
+using NextTurn.Application.Queue.Commands.AssignStaffToQueue;
+using NextTurn.Application.Queue.Commands.UnassignStaffFromQueue;
+using NextTurn.Application.Queue.Commands;
+using NextTurn.Application.Queue.Queries.GetQueueDashboard;
 using NextTurn.Application.Queue.Queries.GetMyQueues;
 using NextTurn.Application.Queue.Queries.GetQueueStatus;
 using NextTurn.Application.Queue.Queries.ListOrgQueues;
+using NextTurn.Application.Queue.Queries.ListQueueStaffAssignments;
+using NextTurn.Application.Queue.Queries.ListStaffQueues;
+using NextTurn.Domain.Queue.Repositories;
 
 namespace NextTurn.API.Controllers;
 
@@ -28,10 +39,32 @@ namespace NextTurn.API.Controllers;
 public sealed class QueuesController : ControllerBase
 {
     private readonly ISender _sender;
+    private readonly IQueueRepository _queueRepository;
 
-    public QueuesController(ISender sender)
+    public QueuesController(ISender sender, IQueueRepository queueRepository)
     {
         _sender = sender;
+        _queueRepository = queueRepository;
+    }
+
+    private bool TryGetUserId(out Guid userId)
+    {
+        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier)
+                       ?? User.FindFirstValue("sub");
+
+        return Guid.TryParse(userIdClaim, out userId);
+    }
+
+    private bool TryGetOrganisationId(out Guid organisationId)
+    {
+        var tenantIdClaim = User.FindFirstValue("tid");
+        return Guid.TryParse(tenantIdClaim, out organisationId);
+    }
+
+    private string? GetRole()
+    {
+        return User.FindFirstValue(ClaimTypes.Role)
+            ?? User.FindFirstValue("role");
     }
 
     /// <summary>
@@ -69,19 +102,48 @@ public sealed class QueuesController : ControllerBase
         Guid queueId,
         CancellationToken cancellationToken)
     {
-        // Extract the user's ID from the "sub" claim in the validated JWT.
-        // The controller never trusts a userId from the request body — the JWT is
-        // already authorised and verified by the bearer middleware above.
-        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier)
-                       ?? User.FindFirstValue("sub");
-
-        if (!Guid.TryParse(userIdClaim, out var userId))
+        // Extract the user's ID from the validated JWT claim.
+        if (!TryGetUserId(out var userId))
             return Unauthorized();
 
         var command = new JoinQueueCommand(queueId, userId);
         var result  = await _sender.Send(command, cancellationToken);
 
         return Ok(result);
+    }
+
+    /// <summary>
+    /// Leave (cancel entry in) a queue.
+    /// </summary>
+    /// <remarks>
+    /// Requires a valid JWT (Authorization: Bearer {token}) and an X-Tenant-Id header.
+    ///
+    /// The authenticated user's ID is extracted from the JWT <c>sub</c> claim.
+    /// The user may only cancel their own entry.
+    ///
+    /// Success response: 204 No Content
+    ///
+    /// Error responses:
+    ///   400 — queue not found, or user is not in this queue
+    ///   401 — missing or invalid JWT
+    ///   422 — validation failed (malformed queueId GUID)
+    /// </remarks>
+    [HttpPost("{queueId:guid}/leave")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> LeaveQueue(
+        Guid queueId,
+        CancellationToken cancellationToken)
+    {
+        if (!TryGetUserId(out var userId))
+            return Unauthorized();
+
+        var command = new LeaveQueueCommand(queueId, userId);
+        await _sender.Send(command, cancellationToken);
+
+        return NoContent();
     }
 
     /// <summary>
@@ -117,11 +179,7 @@ public sealed class QueuesController : ControllerBase
         [FromBody] CreateQueueRequest request,
         CancellationToken cancellationToken)
     {
-        // OrganisationId == TenantId in NextTurn's single-org-per-tenant model.
-        // The tid claim is set by JwtTokenService when the org admin logs in.
-        var tenantIdClaim = User.FindFirstValue("tid");
-
-        if (!Guid.TryParse(tenantIdClaim, out var organisationId))
+        if (!TryGetOrganisationId(out var organisationId))
             return Unauthorized();
 
         var command = new CreateQueueCommand(
@@ -146,9 +204,7 @@ public sealed class QueuesController : ControllerBase
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> ListQueues(CancellationToken cancellationToken)
     {
-        var tenantIdClaim = User.FindFirstValue("tid");
-
-        if (!Guid.TryParse(tenantIdClaim, out var organisationId))
+        if (!TryGetOrganisationId(out var organisationId))
             return Unauthorized();
 
         var query  = new ListOrgQueuesQuery(organisationId);
@@ -167,9 +223,7 @@ public sealed class QueuesController : ControllerBase
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> BrowseQueues(CancellationToken cancellationToken)
     {
-        var tenantIdClaim = User.FindFirstValue("tid");
-
-        if (!Guid.TryParse(tenantIdClaim, out var organisationId))
+        if (!TryGetOrganisationId(out var organisationId))
             return Unauthorized();
 
         var query  = new ListOrgQueuesQuery(organisationId);
@@ -187,10 +241,7 @@ public sealed class QueuesController : ControllerBase
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> GetMyQueues(CancellationToken cancellationToken)
     {
-        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier)
-                       ?? User.FindFirstValue("sub");
-
-        if (!Guid.TryParse(userIdClaim, out var userId))
+        if (!TryGetUserId(out var userId))
             return Unauthorized();
 
         var query  = new GetMyQueuesQuery(userId);
@@ -229,15 +280,216 @@ public sealed class QueuesController : ControllerBase
         Guid queueId,
         CancellationToken cancellationToken)
     {
-        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier)
-                       ?? User.FindFirstValue("sub");
-
-        if (!Guid.TryParse(userIdClaim, out var userId))
+        if (!TryGetUserId(out var userId))
             return Unauthorized();
 
         var query  = new GetQueueStatusQuery(queueId, userId);
         var result = await _sender.Send(query, cancellationToken);
 
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// List queues available to the authenticated staff user.
+    /// Staff users receive only queues assigned to them.
+    /// Org admins and system admins receive all org queues.
+    /// </summary>
+    [HttpGet("staff-assigned")]
+    [Authorize(Roles = "Staff,OrgAdmin,SystemAdmin")]
+    [ProducesResponseType(typeof(IReadOnlyList<OrgQueueSummary>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> ListStaffQueues(CancellationToken cancellationToken)
+    {
+        if (!TryGetUserId(out var userId))
+            return Unauthorized();
+
+        if (!TryGetOrganisationId(out var organisationId))
+            return Unauthorized();
+
+        var role = GetRole();
+        if (string.IsNullOrWhiteSpace(role))
+            return Unauthorized();
+
+        var query = new ListStaffQueuesQuery(userId, role, organisationId);
+        var result = await _sender.Send(query, cancellationToken);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Lists staff accounts currently assigned to a queue.
+    /// </summary>
+    [HttpGet("{queueId:guid}/staff-assignments")]
+    [Authorize(Roles = "OrgAdmin,SystemAdmin")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> ListQueueStaffAssignments(
+        Guid queueId,
+        CancellationToken cancellationToken)
+    {
+        var query = new ListQueueStaffAssignmentsQuery(queueId);
+        var result = await _sender.Send(query, cancellationToken);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Assigns a staff account to a queue.
+    /// </summary>
+    [HttpPost("{queueId:guid}/staff-assignments/{staffUserId:guid}")]
+    [Authorize(Roles = "OrgAdmin,SystemAdmin")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> AssignStaffToQueue(
+        Guid queueId,
+        Guid staffUserId,
+        CancellationToken cancellationToken)
+    {
+        var command = new AssignStaffToQueueCommand(queueId, staffUserId);
+        await _sender.Send(command, cancellationToken);
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Removes a staff assignment from a queue.
+    /// </summary>
+    [HttpDelete("{queueId:guid}/staff-assignments/{staffUserId:guid}")]
+    [Authorize(Roles = "OrgAdmin,SystemAdmin")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> UnassignStaffFromQueue(
+        Guid queueId,
+        Guid staffUserId,
+        CancellationToken cancellationToken)
+    {
+        var command = new UnassignStaffFromQueueCommand(queueId, staffUserId);
+        await _sender.Send(command, cancellationToken);
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Returns staff dashboard data for a queue: current serving ticket and waiting list.
+    /// </summary>
+    [HttpGet("{queueId:guid}/dashboard")]
+    [Authorize(Policy = "IsStaff")]
+    [ProducesResponseType(typeof(GetQueueDashboardResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> GetQueueDashboard(
+        Guid queueId,
+        CancellationToken cancellationToken)
+    {
+        if (!TryGetUserId(out var userId))
+            return Unauthorized();
+
+        var role = GetRole();
+        if (role == "Staff")
+        {
+            var isAssigned = await _queueRepository.IsStaffAssignedToQueueAsync(queueId, userId, cancellationToken);
+            if (!isAssigned)
+                return Forbid();
+        }
+
+        var query = new GetQueueDashboardQuery(queueId);
+        var result = await _sender.Send(query, cancellationToken);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Calls the next waiting ticket into service.
+    /// </summary>
+    [HttpPost("{queueId:guid}/call-next")]
+    [Authorize(Policy = "IsStaff")]
+    [ProducesResponseType(typeof(QueueEntryActionResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> CallNext(
+        Guid queueId,
+        CancellationToken cancellationToken)
+    {
+        if (!TryGetUserId(out var userId))
+            return Unauthorized();
+
+        var role = GetRole();
+        if (role == "Staff")
+        {
+            var isAssigned = await _queueRepository.IsStaffAssignedToQueueAsync(queueId, userId, cancellationToken);
+            if (!isAssigned)
+                return Forbid();
+        }
+
+        var command = new CallNextCommand(queueId);
+        var result = await _sender.Send(command, cancellationToken);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Marks the currently serving ticket as served.
+    /// </summary>
+    [HttpPost("{queueId:guid}/served")]
+    [Authorize(Policy = "IsStaff")]
+    [ProducesResponseType(typeof(QueueEntryActionResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> MarkServed(
+        Guid queueId,
+        CancellationToken cancellationToken)
+    {
+        if (!TryGetUserId(out var userId))
+            return Unauthorized();
+
+        var role = GetRole();
+        if (role == "Staff")
+        {
+            var isAssigned = await _queueRepository.IsStaffAssignedToQueueAsync(queueId, userId, cancellationToken);
+            if (!isAssigned)
+                return Forbid();
+        }
+
+        var command = new MarkServedCommand(queueId);
+        var result = await _sender.Send(command, cancellationToken);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Marks the currently serving ticket as no-show.
+    /// </summary>
+    [HttpPost("{queueId:guid}/no-show")]
+    [Authorize(Policy = "IsStaff")]
+    [ProducesResponseType(typeof(QueueEntryActionResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> MarkNoShow(
+        Guid queueId,
+        CancellationToken cancellationToken)
+    {
+        if (!TryGetUserId(out var userId))
+            return Unauthorized();
+
+        var role = GetRole();
+        if (role == "Staff")
+        {
+            var isAssigned = await _queueRepository.IsStaffAssignedToQueueAsync(queueId, userId, cancellationToken);
+            if (!isAssigned)
+                return Forbid();
+        }
+
+        var command = new MarkNoShowCommand(queueId);
+        var result = await _sender.Send(command, cancellationToken);
         return Ok(result);
     }
 }

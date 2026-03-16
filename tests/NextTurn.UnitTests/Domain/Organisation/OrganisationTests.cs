@@ -111,6 +111,43 @@ public sealed class OrganisationTests
         org.Name.Should().Be("Acme Corp");
     }
 
+    [Fact]
+    public void Create_WithExplicitSlug_NormalizesToLowerInvariant()
+    {
+        var org = OrganisationEntity.Create(
+            "Acme Corp",
+            "  ACME-PORTAL  ",
+            ValidAddress,
+            OrganisationType.Healthcare,
+            ValidAdminEmail);
+
+        org.Slug.Should().Be("acme-portal");
+    }
+
+    [Fact]
+    public void Create_WithoutExplicitSlug_DerivesSlugFromName()
+    {
+        var org = OrganisationEntity.Create(
+            "Acme & Sons Ltd",
+            ValidAddress,
+            OrganisationType.Healthcare,
+            ValidAdminEmail);
+
+        org.Slug.Should().Be("acme-sons-ltd");
+    }
+
+    [Fact]
+    public void Create_WithVeryShortName_PadsGeneratedSlug()
+    {
+        var org = OrganisationEntity.Create(
+            "A",
+            ValidAddress,
+            OrganisationType.Healthcare,
+            ValidAdminEmail);
+
+        org.Slug.Length.Should().BeGreaterThanOrEqualTo(3);
+    }
+
     // ── Organisation.Create — validation failures ─────────────────────────────
 
     [Theory]
@@ -142,6 +179,42 @@ public sealed class OrganisationTests
             new string('A', 200), ValidAddress, OrganisationType.Healthcare, ValidAdminEmail);
 
         act.Should().NotThrow();
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Create_WithMissingExplicitSlug_ThrowsDomainException(string slug)
+    {
+        var act = () => OrganisationEntity.Create(
+            ValidName, slug, ValidAddress, OrganisationType.Healthcare, ValidAdminEmail);
+
+        act.Should().Throw<DomainException>()
+            .WithMessage("Organisation slug is required.");
+    }
+
+    [Fact]
+    public void Create_WithTooShortExplicitSlug_ThrowsDomainException()
+    {
+        var act = () => OrganisationEntity.Create(
+            ValidName, "ab", ValidAddress, OrganisationType.Healthcare, ValidAdminEmail);
+
+        act.Should().Throw<DomainException>()
+            .WithMessage("Organisation slug must be between 3 and 64 characters.");
+    }
+
+    [Fact]
+    public void Create_WithTooLongExplicitSlug_ThrowsDomainException()
+    {
+        var act = () => OrganisationEntity.Create(
+            ValidName,
+            new string('a', 65),
+            ValidAddress,
+            OrganisationType.Healthcare,
+            ValidAdminEmail);
+
+        act.Should().Throw<DomainException>()
+            .WithMessage("Organisation slug must be between 3 and 64 characters.");
     }
 
     // ── Address — happy path ──────────────────────────────────────────────────
@@ -221,5 +294,54 @@ public sealed class OrganisationTests
 
         act.Should().Throw<DomainException>()
            .WithMessage("Country is required.");
+    }
+
+    [Fact]
+    public void Approve_FromPending_SetsActive()
+    {
+        var org = OrganisationEntity.Create(
+            ValidName, ValidAddress, OrganisationType.Healthcare, ValidAdminEmail);
+
+        org.Approve();
+
+        org.Status.Should().Be(OrganisationStatus.Active);
+    }
+
+    [Fact]
+    public void Approve_WhenNotPending_Throws()
+    {
+        var org = OrganisationEntity.Create(
+            ValidName, ValidAddress, OrganisationType.Healthcare, ValidAdminEmail);
+        org.Approve();
+
+        var act = () => org.Approve();
+
+        act.Should().Throw<DomainException>()
+            .WithMessage("Only a pending organisation can be approved.");
+    }
+
+    [Fact]
+    public void Suspend_FromActive_SetsSuspended()
+    {
+        var org = OrganisationEntity.Create(
+            ValidName, ValidAddress, OrganisationType.Healthcare, ValidAdminEmail);
+        org.Approve();
+
+        org.Suspend();
+
+        org.Status.Should().Be(OrganisationStatus.Suspended);
+    }
+
+    [Fact]
+    public void Reinstate_FromSuspended_SetsActive()
+    {
+        var org = OrganisationEntity.Create(
+            ValidName, ValidAddress, OrganisationType.Healthcare, ValidAdminEmail);
+        org.Approve();
+        org.Suspend();
+
+        org.Reinstate();
+
+        org.Status.Should().Be(OrganisationStatus.Active);
     }
 }

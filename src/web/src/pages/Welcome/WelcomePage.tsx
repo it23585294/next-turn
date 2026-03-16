@@ -63,13 +63,13 @@ function Navbar() {
 
         <div className={styles.navActions}>
           {loggedIn && dashHref ? (
-            <Link to={dashHref} className={styles.btnPrimary}>
+            <Link to={dashHref} className={styles.forOrgsLink}>
               My Dashboard
             </Link>
           ) : (
-            <a href="#hero" className={styles.forOrgsLink}>
-              Get Started
-            </a>
+            <Link to="/login" className={styles.forOrgsLink}>
+              Sign In
+            </Link>
           )}
         </div>
       </div>
@@ -307,10 +307,15 @@ function ForOrgsSection() {
           </p>
         </div>
         <div className={styles.forOrgsCta}>
-          <Link to="/register-org" className={styles.forOrgsLink}>
-            Register your organisation
-            <ArrowRightIcon />
-          </Link>
+          <div className={styles.forOrgsCtaStack}>
+            <Link to="/register-org" className={styles.forOrgsLink}>
+              Register your organisation
+              <ArrowRightIcon />
+            </Link>
+            <Link to="/find-org-login" className={styles.forOrgsLinkMuted}>
+              Already an admin? Find login link
+            </Link>
+          </div>
         </div>
       </div>
     </section>

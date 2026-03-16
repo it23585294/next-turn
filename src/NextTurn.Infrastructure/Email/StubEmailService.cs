@@ -32,4 +32,22 @@ public sealed class StubEmailService : IEmailService
 
         return Task.CompletedTask;
     }
+
+    public Task SendStaffInviteEmailAsync(
+        string toEmail,
+        string staffName,
+        string invitePath,
+        DateTimeOffset expiresAt,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogInformation(
+            "[STUB] Staff invite email would be sent to {Email} ({StaffName}). " +
+            "Invite link: {InvitePath}. Expires: {ExpiresAt}",
+            toEmail,
+            staffName,
+            invitePath,
+            expiresAt);
+
+        return Task.CompletedTask;
+    }
 }

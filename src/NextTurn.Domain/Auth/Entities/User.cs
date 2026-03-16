@@ -30,6 +30,10 @@ public class User {
   /// </summary>
   public bool MfaEnabled { get; private set; }
 
+  // ── Staff invite onboarding ──────────────────────────────────────────────
+  public string? StaffInviteTokenHash { get; private set; }
+  public DateTimeOffset? StaffInviteExpiresAt { get; private set; }
+
   // Required by EF Core for entity materialization (loading from the database).
   // EF Core cannot bind constructor parameters to owned-type navigations (like EmailAddress),
   // so it needs a parameterless constructor. Protected prevents accidental use in domain code.
@@ -123,6 +127,51 @@ public class User {
   {
     FailedLoginAttempts = 0;
     LockoutUntil = null;
+  }
+
+  public void StartStaffInvite(string tokenHash, DateTimeOffset expiresAt)
+  {
+    if (Role != UserRole.Staff)
+      throw new DomainException("Only staff users can have invite tokens.");
+
+    if (string.IsNullOrWhiteSpace(tokenHash))
+      throw new DomainException("Invite token hash is required.");
+
+    if (expiresAt <= DateTimeOffset.UtcNow)
+      throw new DomainException("Invite expiry must be in the future.");
+
+    StaffInviteTokenHash = tokenHash;
+    StaffInviteExpiresAt = expiresAt;
+    IsActive = false;
+    Unlock();
+  }
+
+  public void AcceptStaffInvite(string passwordHash)
+  {
+    if (Role != UserRole.Staff)
+      throw new DomainException("Only staff users can accept staff invites.");
+
+    if (string.IsNullOrWhiteSpace(passwordHash))
+      throw new DomainException("Password hash is required.");
+
+    if (StaffInviteTokenHash is null || StaffInviteExpiresAt is null)
+      throw new DomainException("No active invite was found for this account.");
+
+    if (StaffInviteExpiresAt <= DateTimeOffset.UtcNow)
+      throw new DomainException("Invite has expired.");
+
+    PasswordHash = passwordHash;
+    StaffInviteTokenHash = null;
+    StaffInviteExpiresAt = null;
+    IsActive = true;
+    Unlock();
+  }
+
+  public bool HasActiveInviteToken(string tokenHash)
+  {
+    return StaffInviteTokenHash == tokenHash
+      && StaffInviteExpiresAt.HasValue
+      && StaffInviteExpiresAt.Value > DateTimeOffset.UtcNow;
   }
   
 }

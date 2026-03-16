@@ -1,10 +1,14 @@
 using Microsoft.EntityFrameworkCore;
 using NextTurn.Application.Common.Interfaces;
+using AppointmentEntity  = NextTurn.Domain.Appointment.Entities.Appointment;
+using AppointmentProfile = NextTurn.Domain.Appointment.Entities.AppointmentProfile;
+using AppointmentScheduleRule = NextTurn.Domain.Appointment.Entities.AppointmentScheduleRule;
 using NextTurn.Domain.Auth.Entities;
 using NextTurn.Infrastructure.Persistence.Configurations.Auth;
 using OrganisationEntity = NextTurn.Domain.Organisation.Entities.Organisation;
 using QueueEntity        = NextTurn.Domain.Queue.Entities.Queue;
 using QueueEntry         = NextTurn.Domain.Queue.Entities.QueueEntry;
+using QueueStaffAssignment = NextTurn.Domain.Queue.Entities.QueueStaffAssignment;
 
 namespace NextTurn.Infrastructure.Persistence;
 
@@ -37,6 +41,12 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     // Queue module (NT-16) — EF Core entity configurations and migration added in NT-16-3.
     public DbSet<QueueEntity> Queues       => Set<QueueEntity>();
     public DbSet<QueueEntry>  QueueEntries => Set<QueueEntry>();
+    public DbSet<QueueStaffAssignment> QueueStaffAssignments => Set<QueueStaffAssignment>();
+
+    // Appointment module (NT-19).
+    public DbSet<AppointmentEntity> Appointments => Set<AppointmentEntity>();
+    public DbSet<AppointmentProfile> AppointmentProfiles => Set<AppointmentProfile>();
+    public DbSet<AppointmentScheduleRule> AppointmentScheduleRules => Set<AppointmentScheduleRule>();
 
     // ── Model configuration ───────────────────────────────────────────────────
 
@@ -73,6 +83,19 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
                 Set<QueueEntity>().Any(q =>
                     q.Id == e.QueueId &&
                     q.OrganisationId == _tenantContext.TenantId));
+
+        modelBuilder.Entity<QueueStaffAssignment>()
+            .HasQueryFilter(a => a.OrganisationId == _tenantContext.TenantId);
+
+        // Appointments: scoped by organisation (tenant).
+        modelBuilder.Entity<AppointmentEntity>()
+            .HasQueryFilter(a => a.OrganisationId == _tenantContext.TenantId);
+
+        modelBuilder.Entity<AppointmentProfile>()
+            .HasQueryFilter(p => p.OrganisationId == _tenantContext.TenantId);
+
+        modelBuilder.Entity<AppointmentScheduleRule>()
+            .HasQueryFilter(r => r.OrganisationId == _tenantContext.TenantId);
     }
 
     // ── SaveChanges override ──────────────────────────────────────────────────
@@ -88,7 +111,18 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
             {
                 // Use EF Core's Property API to bypass the private setter on TenantId.
                 // EF Core can set any tracked property regardless of C# access modifiers.
-                entry.Property(nameof(User.TenantId)).CurrentValue = _tenantContext.TenantId;
+                //
+                // Global consumer users intentionally use TenantId = Guid.Empty and do
+                // not require tenant context on registration. If no tenant is resolved
+                // for this request, keep Guid.Empty as-is.
+                try
+                {
+                    entry.Property(nameof(User.TenantId)).CurrentValue = _tenantContext.TenantId;
+                }
+                catch (Domain.Common.DomainException)
+                {
+                    // No tenant context available (e.g. register-global) — keep Guid.Empty.
+                }
             }
         }
 

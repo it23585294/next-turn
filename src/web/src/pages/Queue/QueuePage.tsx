@@ -20,7 +20,7 @@
  */
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { joinQueue, getQueueStatus, type QueueStatusResult } from '../../api/queues'
+import { joinQueue, getQueueStatus, leaveQueue, type QueueStatusResult } from '../../api/queues'
 import { getTokenPayload } from '../../utils/authToken'
 import type { ApiError } from '../../types/api'
 import logoImg from '../../assets/nextTurn-logo.png'
@@ -34,6 +34,7 @@ type PageState =
   | { status: 'alreadyIn' }
   | { status: 'full' }
   | { status: 'error'; detail: string }
+  | { status: 'left' }
 
 function formatEta(seconds: number): string {
   if (seconds < 60) return `${seconds}s`
@@ -63,6 +64,8 @@ export function QueuePage() {
   const navigate = useNavigate()
   const [state, setState] = useState<PageState>({ status: 'loading' })
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  const [showLeaveModal, setShowLeaveModal] = useState(false)
+  const [isLeavingQueue, setIsLeavingQueue] = useState(false)
   const payload = getTokenPayload()
 
   // ── On mount: check if user already has an active ticket ─────────────
@@ -128,11 +131,41 @@ export function QueuePage() {
     }
   }
 
+  async function handleConfirmLeave() {
+    if (!tenantId || !queueId) return
+    setIsLeavingQueue(true)
+
+    try {
+      await leaveQueue(queueId, tenantId)
+      setShowLeaveModal(false)
+      setState({ status: 'left' })
+    } catch (err) {
+      const apiErr = err as ApiError
+      setState({ status: 'error', detail: apiErr.detail ?? 'Failed to leave queue.' })
+      setShowLeaveModal(false)
+    } finally {
+      setIsLeavingQueue(false)
+    }
+  }
+
+  function handleCancelLeave() {
+    setShowLeaveModal(false)
+  }
+
   function handleBackToDashboard() {
     const payload_ = getTokenPayload()
     if (!payload_ || !tenantId) { navigate('/'); return }
     const isAdmin = payload_.role === 'OrgAdmin' || payload_.role === 'SystemAdmin'
     navigate(isAdmin ? `/admin/${tenantId}` : `/dashboard/${tenantId}`)
+  }
+
+  function handleBookAppointment() {
+    if (!tenantId) {
+      navigate('/appointments')
+      return
+    }
+
+    navigate(`/appointments/${tenantId}`)
   }
 
   // ── Loading ─────────────────────────────────────────────────────────
@@ -268,6 +301,13 @@ export function QueuePage() {
               <p className={styles.ticketNote}>
                 Please stay nearby. You'll be called when it's your turn.
               </p>
+              <button
+                className={`${styles.leaveBtn}`}
+                onClick={() => setShowLeaveModal(true)}
+                type="button"
+              >
+                Leave Queue
+              </button>
             </div>
           </div>
         )}
@@ -307,6 +347,7 @@ export function QueuePage() {
               className={`${styles.joinBtn} ${styles.joinBtnAccent}`}
               type="button"
               data-testid="book-appointment-btn"
+              onClick={handleBookAppointment}
             >
               Book an Appointment
             </button>
@@ -331,7 +372,58 @@ export function QueuePage() {
           </div>
         )}
 
+        {/* ── Left queue ── */}
+        {state.status === 'left' && (
+          <div className={styles.idleCard} data-testid="left-block">
+            <div className={styles.idleIcon}>
+              <CheckIcon />
+            </div>
+            <h1 className={styles.idleHeading}>You've left the queue</h1>
+            <p className={styles.idleBody}>Your ticket has been cancelled.</p>
+            <button
+              className={`${styles.joinBtn} ${styles.joinBtnSecondary}`}
+              onClick={handleBackToDashboard}
+              type="button"
+            >
+              Back to Dashboard
+            </button>
+          </div>
+        )}
+
       </main>
+
+      {/* Leave queue confirmation modal */}
+      {showLeaveModal && (
+        <div className={styles.modalOverlay} onClick={handleCancelLeave} role="presentation">
+          <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <h2 className={styles.modalTitle}>Leave Queue?</h2>
+            </div>
+            <div className={styles.modalBody}>
+              <p>Your ticket will be cancelled and you'll lose your place in the queue.</p>
+              <p>Are you sure you want to leave?</p>
+            </div>
+            <div className={styles.modalFooter}>
+              <button
+                className={`${styles.joinBtn} ${styles.joinBtnSecondary}`}
+                onClick={handleCancelLeave}
+                type="button"
+                disabled={isLeavingQueue}
+              >
+                Keep Waiting
+              </button>
+              <button
+                className={`${styles.joinBtn} ${styles.joinBtnDanger}`}
+                onClick={handleConfirmLeave}
+                type="button"
+                disabled={isLeavingQueue}
+              >
+                {isLeavingQueue ? 'Leaving...' : 'Leave Queue'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -394,6 +486,15 @@ function BackIcon() {
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
       stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
       <polyline points="15 18 9 12 15 6"/>
+    </svg>
+  )
+}
+function CheckIcon() {
+  return (
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10"/>
+      <polyline points="16 12 12 8 8 12"/>
     </svg>
   )
 }

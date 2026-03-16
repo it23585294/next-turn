@@ -16,4 +16,14 @@ public interface IEmailService
         string orgName,
         string temporaryPassword,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Sends a staff invite email containing a secure invite acceptance link.
+    /// </summary>
+    Task SendStaffInviteEmailAsync(
+        string toEmail,
+        string staffName,
+        string invitePath,
+        DateTimeOffset expiresAt,
+        CancellationToken cancellationToken);
 }

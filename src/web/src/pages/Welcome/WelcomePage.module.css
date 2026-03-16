@@ -728,6 +728,12 @@
   flex-shrink: 0;
 }
 
+.forOrgsCtaStack {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+}
+
 .forOrgsLink {
   display: inline-flex;
   align-items: center;
@@ -750,6 +756,19 @@
   color: var(--color-white);
   box-shadow: 0 4px 14px rgba(35, 114, 39, 0.22);
   text-decoration: none;
+}
+
+.forOrgsLinkMuted {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  text-decoration: none;
+  border-bottom: 1px dashed var(--color-border);
+  padding-bottom: 2px;
+}
+
+.forOrgsLinkMuted:hover {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
 }
 
 @media (max-width: 900px) {

@@ -286,4 +286,122 @@ public sealed class UserTests
         user.LockoutUntil.Should().BeNull();
         user.IsLockedOut().Should().BeFalse();
     }
+
+    [Fact]
+    public void StartStaffInvite_ForStaffUser_SetsInviteFieldsAndDeactivates()
+    {
+        var user = User.Create(ValidTenantId, ValidName, ValidEmail, null, ValidPasswordHash, UserRole.Staff);
+
+        user.StartStaffInvite("ABC123", DateTimeOffset.UtcNow.AddHours(2));
+
+        user.StaffInviteTokenHash.Should().Be("ABC123");
+        user.StaffInviteExpiresAt.Should().NotBeNull();
+        user.IsActive.Should().BeFalse();
+        user.FailedLoginAttempts.Should().Be(0);
+        user.LockoutUntil.Should().BeNull();
+    }
+
+    [Fact]
+    public void StartStaffInvite_ForNonStaff_Throws()
+    {
+        var user = User.Create(ValidTenantId, ValidName, ValidEmail, null, ValidPasswordHash, UserRole.User);
+        var act = () => user.StartStaffInvite("ABC123", DateTimeOffset.UtcNow.AddHours(2));
+
+        act.Should().Throw<DomainException>()
+            .WithMessage("Only staff users can have invite tokens.");
+    }
+
+    [Fact]
+    public void StartStaffInvite_WithMissingTokenHash_Throws()
+    {
+        var user = User.Create(ValidTenantId, ValidName, ValidEmail, null, ValidPasswordHash, UserRole.Staff);
+        var act = () => user.StartStaffInvite(" ", DateTimeOffset.UtcNow.AddHours(2));
+
+        act.Should().Throw<DomainException>()
+            .WithMessage("Invite token hash is required.");
+    }
+
+    [Fact]
+    public void StartStaffInvite_WithPastExpiry_Throws()
+    {
+        var user = User.Create(ValidTenantId, ValidName, ValidEmail, null, ValidPasswordHash, UserRole.Staff);
+        var act = () => user.StartStaffInvite("ABC123", DateTimeOffset.UtcNow.AddMinutes(-1));
+
+        act.Should().Throw<DomainException>()
+            .WithMessage("Invite expiry must be in the future.");
+    }
+
+    [Fact]
+    public void HasActiveInviteToken_WithMatchingTokenAndFutureExpiry_ReturnsTrue()
+    {
+        var user = User.Create(ValidTenantId, ValidName, ValidEmail, null, ValidPasswordHash, UserRole.Staff);
+        user.StartStaffInvite("ABC123", DateTimeOffset.UtcNow.AddHours(1));
+
+        user.HasActiveInviteToken("ABC123").Should().BeTrue();
+    }
+
+    [Fact]
+    public void HasActiveInviteToken_WithMismatchedToken_ReturnsFalse()
+    {
+        var user = User.Create(ValidTenantId, ValidName, ValidEmail, null, ValidPasswordHash, UserRole.Staff);
+        user.StartStaffInvite("ABC123", DateTimeOffset.UtcNow.AddHours(1));
+
+        user.HasActiveInviteToken("NOPE").Should().BeFalse();
+    }
+
+    [Fact]
+    public void HasActiveInviteToken_WithExpiredInvite_ReturnsFalse()
+    {
+        var user = User.Create(ValidTenantId, ValidName, ValidEmail, null, ValidPasswordHash, UserRole.Staff);
+        user.StartStaffInvite("ABC123", DateTimeOffset.UtcNow.AddHours(1));
+        user.AcceptStaffInvite("newhash");
+
+        user.HasActiveInviteToken("ABC123").Should().BeFalse();
+    }
+
+    [Fact]
+    public void AcceptStaffInvite_WithValidInvite_ActivatesUserAndClearsInvite()
+    {
+        var user = User.Create(ValidTenantId, ValidName, ValidEmail, null, ValidPasswordHash, UserRole.Staff);
+        user.StartStaffInvite("ABC123", DateTimeOffset.UtcNow.AddHours(1));
+
+        user.AcceptStaffInvite("final-hash");
+
+        user.IsActive.Should().BeTrue();
+        user.PasswordHash.Should().Be("final-hash");
+        user.StaffInviteTokenHash.Should().BeNull();
+        user.StaffInviteExpiresAt.Should().BeNull();
+    }
+
+    [Fact]
+    public void AcceptStaffInvite_ForNonStaff_Throws()
+    {
+        var user = User.Create(ValidTenantId, ValidName, ValidEmail, null, ValidPasswordHash, UserRole.User);
+        var act = () => user.AcceptStaffInvite("hash");
+
+        act.Should().Throw<DomainException>()
+            .WithMessage("Only staff users can accept staff invites.");
+    }
+
+    [Fact]
+    public void AcceptStaffInvite_WithMissingPasswordHash_Throws()
+    {
+        var user = User.Create(ValidTenantId, ValidName, ValidEmail, null, ValidPasswordHash, UserRole.Staff);
+        user.StartStaffInvite("ABC123", DateTimeOffset.UtcNow.AddHours(1));
+
+        var act = () => user.AcceptStaffInvite(" ");
+
+        act.Should().Throw<DomainException>()
+            .WithMessage("Password hash is required.");
+    }
+
+    [Fact]
+    public void AcceptStaffInvite_WithoutInvite_Throws()
+    {
+        var user = User.Create(ValidTenantId, ValidName, ValidEmail, null, ValidPasswordHash, UserRole.Staff);
+        var act = () => user.AcceptStaffInvite("hash");
+
+        act.Should().Throw<DomainException>()
+            .WithMessage("No active invite was found for this account.");
+    }
 }

@@ -37,11 +37,17 @@ vi.mock('../../utils/authToken', () => ({
 }))
 
 import {
+  callNext,
   joinQueue,
+  getQueueDashboard,
   createQueue,
   getQueueStatus,
+  markNoShow,
+  markServed,
   type JoinQueueResult,
   type CreateQueueResult,
+  type QueueDashboardResult,
+  type QueueEntryActionResult,
   type QueueStatusResult,
 } from '../../api/queues'
 import { apiClient } from '../../api/client'
@@ -315,5 +321,94 @@ describe('getQueueStatus — errors', () => {
     await expect(getQueueStatus(QUEUE_ID, TENANT_ID)).rejects.toMatchObject({
       status: 401,
     })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// staff dashboard endpoints
+// ---------------------------------------------------------------------------
+
+const SAMPLE_DASHBOARD: QueueDashboardResult = {
+  queueId: QUEUE_ID,
+  queueName: 'Main Counter',
+  queueStatus: 'Active',
+  waitingCount: 2,
+  currentlyServing: null,
+  waitingEntries: [
+    { entryId: 'e-1', ticketNumber: 1, joinedAt: '2026-01-01T09:00:00Z' },
+    { entryId: 'e-2', ticketNumber: 2, joinedAt: '2026-01-01T09:02:00Z' },
+  ],
+}
+
+const SAMPLE_ACTION: QueueEntryActionResult = {
+  entryId: 'e-1',
+  ticketNumber: 1,
+  status: 'Serving',
+}
+
+describe('getQueueDashboard — success', () => {
+  beforeEach(() => {
+    mockGet.mockResolvedValueOnce({ status: 200, data: SAMPLE_DASHBOARD } as AxiosResponse)
+  })
+
+  it('returns dashboard data on 200', async () => {
+    const result = await getQueueDashboard(QUEUE_ID, TENANT_ID)
+    expect(result).toEqual(SAMPLE_DASHBOARD)
+  })
+
+  it('calls GET /queues/{queueId}/dashboard with auth headers', async () => {
+    await getQueueDashboard(QUEUE_ID, TENANT_ID)
+    expect(mockGet).toHaveBeenCalledWith(
+      `/queues/${QUEUE_ID}/dashboard`,
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: 'Bearer test-jwt-token',
+          'X-Tenant-Id': TENANT_ID,
+        }),
+      })
+    )
+  })
+})
+
+describe('staff action endpoints — success', () => {
+  it('callNext posts to /call-next', async () => {
+    mockPost.mockResolvedValueOnce({ status: 200, data: SAMPLE_ACTION } as AxiosResponse)
+
+    const result = await callNext(QUEUE_ID, TENANT_ID)
+
+    expect(result).toEqual(SAMPLE_ACTION)
+    expect(mockPost).toHaveBeenCalledWith(
+      `/queues/${QUEUE_ID}/call-next`,
+      null,
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: 'Bearer test-jwt-token', 'X-Tenant-Id': TENANT_ID }),
+      })
+    )
+  })
+
+  it('markServed posts to /served', async () => {
+    mockPost.mockResolvedValueOnce({ status: 200, data: { ...SAMPLE_ACTION, status: 'Served' } } as AxiosResponse)
+
+    const result = await markServed(QUEUE_ID, TENANT_ID)
+
+    expect(result.status).toBe('Served')
+    expect(mockPost).toHaveBeenCalledWith(
+      `/queues/${QUEUE_ID}/served`,
+      null,
+      expect.any(Object)
+    )
+  })
+
+  it('markNoShow posts to /no-show', async () => {
+    mockPost.mockResolvedValueOnce({ status: 200, data: { ...SAMPLE_ACTION, status: 'NoShow' } } as AxiosResponse)
+
+    const result = await markNoShow(QUEUE_ID, TENANT_ID)
+
+    expect(result.status).toBe('NoShow')
+    expect(mockPost).toHaveBeenCalledWith(
+      `/queues/${QUEUE_ID}/no-show`,
+      null,
+      expect.any(Object)
+    )
   })
 })

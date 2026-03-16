@@ -1,4 +1,5 @@
 using FluentAssertions;
+using NextTurn.Domain.Common;
 using NextTurn.Domain.Queue.Entities;
 using NextTurn.Domain.Queue.Enums;
 
@@ -84,5 +85,136 @@ public sealed class QueueEntryTests
         var act = () => QueueEntry.Create(ValidQueueId, ValidUserId, ticketNumber: 1);
 
         act.Should().NotThrow();
+    }
+
+    // ── QueueEntry.Cancel behaviour ──────────────────────────────────────────
+
+    [Fact]
+    public void Cancel_WhenEntryIsWaiting_SetsStatusToCancelled()
+    {
+        var entry = QueueEntry.Create(ValidQueueId, ValidUserId, ValidTicketNumber);
+
+        entry.Cancel();
+
+        entry.Status.Should().Be(QueueEntryStatus.Cancelled);
+    }
+
+    [Fact]
+    public void Cancel_WhenEntryAlreadyCancelled_ThrowsDomainException()
+    {
+        var entry = QueueEntry.Create(ValidQueueId, ValidUserId, ValidTicketNumber);
+        entry.Cancel();
+
+        var act = () => entry.Cancel();
+
+        act.Should().Throw<DomainException>()
+           .WithMessage("Queue entry is already in a terminal state and cannot be cancelled.");
+    }
+
+    [Theory]
+    [InlineData(QueueEntryStatus.Served)]
+    [InlineData(QueueEntryStatus.NoShow)]
+    public void Cancel_WhenEntryInOtherTerminalState_ThrowsDomainException(QueueEntryStatus terminalStatus)
+    {
+        var entry = QueueEntry.Create(ValidQueueId, ValidUserId, ValidTicketNumber);
+        SetStatus(entry, terminalStatus);
+
+        var act = () => entry.Cancel();
+
+        act.Should().Throw<DomainException>()
+           .WithMessage("Queue entry is already in a terminal state and cannot be cancelled.");
+    }
+
+    // ── QueueEntry.StartServing behaviour ───────────────────────────────────
+
+    [Fact]
+    public void StartServing_WhenEntryIsWaiting_SetsStatusToServing()
+    {
+        var entry = QueueEntry.Create(ValidQueueId, ValidUserId, ValidTicketNumber);
+
+        entry.StartServing();
+
+        entry.Status.Should().Be(QueueEntryStatus.Serving);
+    }
+
+    [Theory]
+    [InlineData(QueueEntryStatus.Serving)]
+    [InlineData(QueueEntryStatus.Served)]
+    [InlineData(QueueEntryStatus.Cancelled)]
+    [InlineData(QueueEntryStatus.NoShow)]
+    public void StartServing_WhenEntryIsNotWaiting_ThrowsDomainException(QueueEntryStatus status)
+    {
+        var entry = QueueEntry.Create(ValidQueueId, ValidUserId, ValidTicketNumber);
+        SetStatus(entry, status);
+
+        var act = () => entry.StartServing();
+
+        act.Should().Throw<DomainException>()
+           .WithMessage("Only waiting queue entries can be moved to serving.");
+    }
+
+    // ── QueueEntry.MarkServed behaviour ─────────────────────────────────────
+
+    [Fact]
+    public void MarkServed_WhenEntryIsServing_SetsStatusToServed()
+    {
+        var entry = QueueEntry.Create(ValidQueueId, ValidUserId, ValidTicketNumber);
+        entry.StartServing();
+
+        entry.MarkServed();
+
+        entry.Status.Should().Be(QueueEntryStatus.Served);
+    }
+
+    [Theory]
+    [InlineData(QueueEntryStatus.Waiting)]
+    [InlineData(QueueEntryStatus.Served)]
+    [InlineData(QueueEntryStatus.Cancelled)]
+    [InlineData(QueueEntryStatus.NoShow)]
+    public void MarkServed_WhenEntryIsNotServing_ThrowsDomainException(QueueEntryStatus status)
+    {
+        var entry = QueueEntry.Create(ValidQueueId, ValidUserId, ValidTicketNumber);
+        SetStatus(entry, status);
+
+        var act = () => entry.MarkServed();
+
+        act.Should().Throw<DomainException>()
+           .WithMessage("Only a serving queue entry can be marked as served.");
+    }
+
+    // ── QueueEntry.MarkNoShow behaviour ─────────────────────────────────────
+
+    [Fact]
+    public void MarkNoShow_WhenEntryIsServing_SetsStatusToNoShow()
+    {
+        var entry = QueueEntry.Create(ValidQueueId, ValidUserId, ValidTicketNumber);
+        entry.StartServing();
+
+        entry.MarkNoShow();
+
+        entry.Status.Should().Be(QueueEntryStatus.NoShow);
+    }
+
+    [Theory]
+    [InlineData(QueueEntryStatus.Waiting)]
+    [InlineData(QueueEntryStatus.Served)]
+    [InlineData(QueueEntryStatus.Cancelled)]
+    [InlineData(QueueEntryStatus.NoShow)]
+    public void MarkNoShow_WhenEntryIsNotServing_ThrowsDomainException(QueueEntryStatus status)
+    {
+        var entry = QueueEntry.Create(ValidQueueId, ValidUserId, ValidTicketNumber);
+        SetStatus(entry, status);
+
+        var act = () => entry.MarkNoShow();
+
+        act.Should().Throw<DomainException>()
+           .WithMessage("Only a serving queue entry can be marked as no-show.");
+    }
+
+    private static void SetStatus(QueueEntry entry, QueueEntryStatus status)
+    {
+        typeof(QueueEntry)
+            .GetProperty(nameof(QueueEntry.Status))!
+            .SetValue(entry, status);
     }
 }

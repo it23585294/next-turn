@@ -22,6 +22,121 @@ namespace NextTurn.Infrastructure.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("NextTurn.Domain.Appointment.Entities.Appointment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AppointmentProfileId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("LateCancellation")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<Guid>("OrganisationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("SlotEnd")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset>("SlotStart")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("Confirmed");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganisationId", "AppointmentProfileId", "SlotStart")
+                        .HasDatabaseName("IX_Appointments_OrganisationId_ProfileId_SlotStart");
+
+                    b.HasIndex("OrganisationId", "AppointmentProfileId", "SlotStart", "SlotEnd")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Appointments_OrganisationId_ProfileId_SlotStart_SlotEnd_Active")
+                        .HasFilter("[Status] <> 'Cancelled' AND [Status] <> 'Rescheduled'");
+
+                    b.ToTable("Appointments", (string)null);
+                });
+
+            modelBuilder.Entity("NextTurn.Domain.Appointment.Entities.AppointmentProfile", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<Guid>("OrganisationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ShareableLink")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganisationId")
+                        .HasDatabaseName("IX_AppointmentProfiles_OrganisationId");
+
+                    b.HasIndex("OrganisationId", "Name")
+                        .IsUnique()
+                        .HasDatabaseName("UX_AppointmentProfiles_OrganisationId_Name");
+
+                    b.ToTable("AppointmentProfiles", (string)null);
+                });
+
+            modelBuilder.Entity("NextTurn.Domain.Appointment.Entities.AppointmentScheduleRule", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AppointmentProfileId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("DayOfWeek")
+                        .HasColumnType("int");
+
+                    b.Property<TimeOnly>("EndTime")
+                        .HasColumnType("time");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("OrganisationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("SlotDurationMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<TimeOnly>("StartTime")
+                        .HasColumnType("time");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganisationId", "AppointmentProfileId", "DayOfWeek")
+                        .IsUnique()
+                        .HasDatabaseName("UX_AppointmentScheduleRules_OrganisationId_ProfileId_DayOfWeek");
+
+                    b.ToTable("AppointmentScheduleRules", (string)null);
+                });
+
             modelBuilder.Entity("NextTurn.Domain.Auth.Entities.User", b =>
                 {
                     b.Property<Guid>("Id")
@@ -69,12 +184,22 @@ namespace NextTurn.Infrastructure.Migrations
                         .HasColumnType("nvarchar(20)")
                         .HasDefaultValue("User");
 
+                    b.Property<DateTimeOffset?>("StaffInviteExpiresAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("StaffInviteTokenHash")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
                     b.Property<Guid>("TenantId")
                         .ValueGeneratedOnUpdateSometimes()
                         .HasColumnType("uniqueidentifier")
                         .HasColumnName("TenantId");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("StaffInviteTokenHash")
+                        .HasDatabaseName("IX_Users_StaffInviteTokenHash");
 
                     b.ToTable("Users", (string)null);
                 });
@@ -91,6 +216,11 @@ namespace NextTurn.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Slug")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -109,6 +239,10 @@ namespace NextTurn.Infrastructure.Migrations
                     b.HasIndex("Name")
                         .IsUnique()
                         .HasDatabaseName("IX_Organisations_Name");
+
+                    b.HasIndex("Slug")
+                        .IsUnique()
+                        .HasDatabaseName("IX_Organisations_Slug");
 
                     b.ToTable("Organisations", (string)null);
                 });
@@ -176,6 +310,11 @@ namespace NextTurn.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("QueueId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_QueueEntries_QueueId_OneServing")
+                        .HasFilter("[Status] = 'Serving'");
+
                     b.HasIndex("QueueId", "Status")
                         .HasDatabaseName("IX_QueueEntries_QueueId_Status");
 
@@ -183,6 +322,35 @@ namespace NextTurn.Infrastructure.Migrations
                         .HasDatabaseName("IX_QueueEntries_QueueId_UserId");
 
                     b.ToTable("QueueEntries", (string)null);
+                });
+
+            modelBuilder.Entity("NextTurn.Domain.Queue.Entities.QueueStaffAssignment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("OrganisationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("QueueId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("StaffUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganisationId")
+                        .HasDatabaseName("IX_QueueStaffAssignments_OrganisationId");
+
+                    b.HasIndex("QueueId", "StaffUserId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_QueueStaffAssignments_QueueId_StaffUserId");
+
+                    b.ToTable("QueueStaffAssignments", (string)null);
                 });
 
             modelBuilder.Entity("NextTurn.Domain.Auth.Entities.User", b =>

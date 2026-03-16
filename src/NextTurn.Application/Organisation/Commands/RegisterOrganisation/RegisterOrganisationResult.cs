@@ -7,5 +7,6 @@ namespace NextTurn.Application.Organisation.Commands.RegisterOrganisation;
 /// </summary>
 public record RegisterOrganisationResult(
     Guid OrganisationId,
-    Guid AdminUserId
+    Guid AdminUserId,
+    string LoginPath
 );

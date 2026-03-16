@@ -1,12 +1,13 @@
 /**
- * GlobalLoginPage — Consumer account sign-in.
+ * GlobalLoginPage — Unified email-first login.
  *
- * Route: /login  (no tenantId — end-users are not bound to any org)
+ * Route: /login
  *
- * Calls POST /api/auth/login-global. Returns a JWT with tid = Guid.Empty.
- * The dashboard then supplies X-Tenant-Id per-request for org-specific APIs.
- *
- * After login, navigates to /dashboard/global  (or ?returnTo path if present).
+ * Step 1: user enters email.
+ * Step 2: we resolve workspace options for staff/admin emails.
+ *   - If one workspace: use it automatically.
+ *   - If multiple: user chooses workspace.
+ *   - If none: falls back to consumer login-global flow.
  */
 import { useForm, type SubmitHandler } from 'react-hook-form'
 import { zodResolver }       from '@hookform/resolvers/zod'
@@ -15,7 +16,8 @@ import { useState } from 'react'
 
 import { loginSchema }        from '../../schemas/loginSchema'
 import type { LoginFormValues } from '../../schemas/loginSchema'
-import { loginGlobalUser }    from '../../api/auth'
+import { loginGlobalUser, loginUser }    from '../../api/auth'
+import { resolveMemberLogin, type MemberWorkspaceOption } from '../../api/organisations'
 import type { ApiError }      from '../../types/api'
 import { saveToken }          from '../../utils/authToken'
 
@@ -29,10 +31,16 @@ import logoImg from '../../assets/nextTurn-logo.png'
 import styles from '../Login/LoginPage.module.css'
 
 type BannerKind = 'error' | 'lockout' | 'ratelimit' | 'session'
+type Step = 'email' | 'password'
 
 export function GlobalLoginPage() {
   const navigate       = useNavigate()
   const [searchParams] = useSearchParams()
+  const [step, setStep] = useState<Step>('email')
+  const [resolvedEmail, setResolvedEmail] = useState('')
+  const [resolvingWorkspace, setResolvingWorkspace] = useState(false)
+  const [workspaceOptions, setWorkspaceOptions] = useState<MemberWorkspaceOption[]>([])
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string>('')
 
   const sessionExpired = searchParams.get('reason') === 'session_expired'
   const [banner, setBanner] = useState<{ kind: BannerKind; message: string } | null>(
@@ -51,13 +59,41 @@ export function GlobalLoginPage() {
   })
 
   const onSubmit: SubmitHandler<LoginFormValues> = async (data) => {
+    if (step === 'email') {
+      setBanner(null)
+      setResolvingWorkspace(true)
+
+      try {
+        const options = await resolveMemberLogin(data.email)
+        setWorkspaceOptions(options)
+        setResolvedEmail(data.email)
+        setSelectedWorkspaceId(options[0]?.organisationId ?? '')
+        setStep('password')
+      } catch (err) {
+        const apiErr = err as ApiError
+        setBanner({ kind: 'error', message: apiErr.detail ?? 'Could not verify your login workspace.' })
+      } finally {
+        setResolvingWorkspace(false)
+      }
+
+      return
+    }
+
     setBanner(null)
 
     try {
-      const result = await loginGlobalUser({
-        email:    data.email,
-        password: data.password,
-      })
+      const selectedWorkspace = workspaceOptions.find(w => w.organisationId === selectedWorkspaceId)
+
+      const result = selectedWorkspace
+        ? await loginUser(selectedWorkspace.organisationId, {
+          email: resolvedEmail,
+          password: data.password,
+        })
+        : await loginGlobalUser({
+          email: resolvedEmail,
+          password: data.password,
+        })
+
       saveToken(result.accessToken)
 
       const returnTo = searchParams.get('returnTo')
@@ -66,7 +102,18 @@ export function GlobalLoginPage() {
         return
       }
 
-      // Global users land on a tenant-free dashboard.
+      if (selectedWorkspace) {
+        const destination =
+          result.role === 'SystemAdmin' || result.role === 'OrgAdmin'
+            ? `/admin/${selectedWorkspace.organisationId}`
+            : result.role === 'Staff'
+              ? `/staff/${selectedWorkspace.organisationId}`
+              : `/dashboard/${selectedWorkspace.organisationId}`
+
+        navigate(destination, { replace: true })
+        return
+      }
+
       navigate('/dashboard', { replace: true })
     } catch (err) {
       const apiErr = err as ApiError
@@ -96,7 +143,11 @@ export function GlobalLoginPage() {
           <div className={styles.formHeader}>
             <h1 className={styles.formTitle}>Welcome back</h1>
             <p className={styles.formSubtitle}>
-              Sign in to your NextTurn account.
+              {step === 'email'
+                ? 'Enter your email to find your workspace.'
+                : (workspaceOptions.length > 0
+                    ? 'Enter your password to continue to your workspace.'
+                    : 'No workspace found for this email. Signing in as a consumer account.')}
             </p>
           </div>
 
@@ -129,27 +180,77 @@ export function GlobalLoginPage() {
                 hasError={!!errors.email}
                 autoComplete="email"
                 autoFocus
+                disabled={step === 'password'}
                 {...register('email')}
               />
             </FormField>
 
+            {step === 'email' && (
+              <input type="hidden" value="TempPass1!" {...register('password')} />
+            )}
+
+            {step === 'password' && workspaceOptions.length > 1 && (
+              <FormField label="Workspace" htmlFor="workspace" required>
+                <select
+                  id="workspace"
+                  className={styles.input}
+                  value={selectedWorkspaceId}
+                  onChange={e => setSelectedWorkspaceId(e.target.value)}
+                >
+                  {workspaceOptions.map(option => (
+                    <option key={option.organisationId} value={option.organisationId}>
+                      {option.organisationName} ({option.role})
+                    </option>
+                  ))}
+                </select>
+              </FormField>
+            )}
+
             {/* Password */}
-            <FormField label="Password" htmlFor="password" error={errors.password?.message} required>
-              <PasswordInput
-                id="password"
-                placeholder="Your password"
-                hasError={!!errors.password}
-                autoComplete="current-password"
-                {...register('password')}
-              />
-            </FormField>
+            {step === 'password' && (
+              <FormField label="Password" htmlFor="password" error={errors.password?.message} required>
+                <PasswordInput
+                  id="password"
+                  placeholder="Your password"
+                  hasError={!!errors.password}
+                  autoComplete="current-password"
+                  {...register('password')}
+                />
+              </FormField>
+            )}
 
             {/* Submit */}
             <div className={styles.actions}>
-              <Button type="submit" variant="primary" size="lg" fullWidth loading={isSubmitting}>
-                Sign In
+              <Button
+                type="submit"
+                variant="primary"
+                size="lg"
+                fullWidth
+                loading={isSubmitting || resolvingWorkspace}
+              >
+                {step === 'email' ? 'Continue' : 'Sign In'}
               </Button>
             </div>
+
+            {step === 'password' && (
+              <div className={styles.actions}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="md"
+                  fullWidth
+                  onClick={() => {
+                    setStep('email')
+                    setWorkspaceOptions([])
+                    setSelectedWorkspaceId('')
+                    setResolvedEmail('')
+                    setBanner(null)
+                  }}
+                >
+                  Change Email
+                </Button>
+              </div>
+            )}
           </form>
 
           {/* Footer */}

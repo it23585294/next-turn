@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using NextTurn.Domain.Auth;
 using NextTurn.Domain.Auth.Entities;
 using NextTurn.Domain.Auth.Repositories;
 using NextTurn.Domain.Auth.ValueObjects;
@@ -42,6 +43,27 @@ public sealed class UserRepository : IUserRepository
     }
 
     /// <inheritdoc/>
+    public async Task<User?> GetByIdAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _context.Users
+            .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task<User?> GetByStaffInviteTokenHashAsync(
+        string tokenHash,
+        CancellationToken cancellationToken = default)
+    {
+        return await _context.Users
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(
+                u => u.StaffInviteTokenHash == tokenHash && u.Role == UserRole.Staff,
+                cancellationToken);
+    }
+
+    /// <inheritdoc/>
     public async Task<bool> ExistsAsync(
         EmailAddress email,
         CancellationToken cancellationToken = default)
@@ -51,6 +73,16 @@ public sealed class UserRepository : IUserRepository
         // Used in the registration flow to detect duplicate emails before inserting.
         return await _context.Users
             .AnyAsync(u => u.Email.Value == email.Value, cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task<IReadOnlyList<User>> ListStaffAsync(
+        CancellationToken cancellationToken = default)
+    {
+        return await _context.Users
+            .Where(u => u.Role == UserRole.Staff)
+            .OrderBy(u => u.Name)
+            .ToListAsync(cancellationToken);
     }
 
     /// <inheritdoc/>

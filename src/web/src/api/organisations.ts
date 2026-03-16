@@ -20,6 +20,27 @@ export interface OrgRegistrationPayload {
 export interface OrgRegistrationResult {
   organisationId: string
   adminUserId: string
+  loginPath?: string
+}
+
+export interface ResolveOrganisationLoginResult {
+  organisationId: string
+  organisationName: string
+  loginPath: string
+}
+
+export interface ResolveOrganisationTenantResult {
+  organisationId: string
+  organisationName: string
+  slug: string
+}
+
+export interface MemberWorkspaceOption {
+  organisationId: string
+  organisationName: string
+  slug: string
+  loginPath: string
+  role: string
 }
 
 /**
@@ -52,5 +73,64 @@ export function toOrgRegistrationPayload(
     orgType:      values.orgType,
     adminName:    values.adminName,
     adminEmail:   values.adminEmail,
+  }
+}
+
+/**
+ * POST /api/organisations/resolve-login
+ * Resolves the tenant-scoped login path for an organisation admin email.
+ */
+export async function resolveOrganisationLogin(
+  adminEmail: string,
+): Promise<ResolveOrganisationLoginResult> {
+  try {
+    const { data } = await apiClient.post<ResolveOrganisationLoginResult>(
+      '/organisations/resolve-login',
+      { adminEmail },
+    )
+    return data
+  } catch (err) {
+    const parsed: ApiError = parseApiError(err)
+    throw parsed
+  }
+}
+
+/**
+ * GET /api/organisations/resolve-tenant?slug={slug}
+ * Resolves organisation tenant details from a public org slug.
+ */
+export async function resolveOrganisationTenant(
+  slug: string,
+): Promise<ResolveOrganisationTenantResult> {
+  try {
+    const { data } = await apiClient.get<ResolveOrganisationTenantResult>(
+      '/organisations/resolve-tenant',
+      {
+        params: { slug },
+      }
+    )
+    return data
+  } catch (err) {
+    const parsed: ApiError = parseApiError(err)
+    throw parsed
+  }
+}
+
+/**
+ * POST /api/organisations/resolve-member-login
+ * Returns workspace login candidates for staff/admin emails.
+ */
+export async function resolveMemberLogin(
+  email: string,
+): Promise<MemberWorkspaceOption[]> {
+  try {
+    const { data } = await apiClient.post<MemberWorkspaceOption[]>(
+      '/organisations/resolve-member-login',
+      { email },
+    )
+    return data
+  } catch (err) {
+    const parsed: ApiError = parseApiError(err)
+    throw parsed
   }
 }

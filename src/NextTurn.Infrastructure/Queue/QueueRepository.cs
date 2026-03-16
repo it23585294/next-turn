@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using NextTurn.Domain.Auth;
 using NextTurn.Domain.Queue.Entities;
 using NextTurn.Domain.Queue.Enums;
 using NextTurn.Domain.Queue.Repositories;
@@ -68,6 +69,26 @@ public sealed class QueueRepository : IQueueRepository
     {
         // Stage for insertion only — caller commits via SaveChangesAsync.
         await _context.QueueEntries.AddAsync(entry, cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task<bool> CancelEntryAsync(
+        Guid queueId,
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        var entry = await _context.QueueEntries
+            .FirstOrDefaultAsync(
+                e => e.QueueId == queueId &&
+                     e.UserId   == userId  &&
+                     (e.Status == QueueEntryStatus.Waiting || e.Status == QueueEntryStatus.Serving),
+                cancellationToken);
+
+        if (entry is null)
+            return false;
+
+        entry.Cancel();
+        return true;
     }
 
     /// <inheritdoc/>
@@ -150,6 +171,122 @@ public sealed class QueueRepository : IQueueRepository
                     StatusStr = queue.Status.ToString(),
                 })
             .Select(x => ValueTuple.Create(x.Id, x.OrganisationId, x.Name, x.TicketNumber, x.StatusStr))
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task<QueueEntry?> GetCurrentServingEntryAsync(
+        Guid queueId,
+        CancellationToken cancellationToken)
+    {
+        return await _context.QueueEntries
+            .FirstOrDefaultAsync(
+                e => e.QueueId == queueId && e.Status == QueueEntryStatus.Serving,
+                cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task<QueueEntry?> GetNextWaitingEntryAsync(
+        Guid queueId,
+        CancellationToken cancellationToken)
+    {
+        return await _context.QueueEntries
+            .Where(e => e.QueueId == queueId && e.Status == QueueEntryStatus.Waiting)
+            .OrderBy(e => e.TicketNumber)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task<IReadOnlyList<QueueEntry>> GetWaitingEntriesAsync(
+        Guid queueId,
+        CancellationToken cancellationToken)
+    {
+        return await _context.QueueEntries
+            .Where(e => e.QueueId == queueId && e.Status == QueueEntryStatus.Waiting)
+            .OrderBy(e => e.TicketNumber)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<bool> IsStaffAssignedToQueueAsync(
+        Guid queueId,
+        Guid staffUserId,
+        CancellationToken cancellationToken)
+    {
+        return await _context.QueueStaffAssignments
+            .AnyAsync(a => a.QueueId == queueId && a.StaffUserId == staffUserId, cancellationToken);
+    }
+
+    public async Task<bool> IsStaffAlreadyAssignedAsync(
+        Guid queueId,
+        Guid staffUserId,
+        CancellationToken cancellationToken)
+    {
+        return await _context.QueueStaffAssignments
+            .AnyAsync(a => a.QueueId == queueId && a.StaffUserId == staffUserId, cancellationToken);
+    }
+
+    public async Task AddStaffAssignmentAsync(
+        Guid organisationId,
+        Guid queueId,
+        Guid staffUserId,
+        CancellationToken cancellationToken)
+    {
+        var assignment = QueueStaffAssignment.Create(organisationId, queueId, staffUserId);
+        await _context.QueueStaffAssignments.AddAsync(assignment, cancellationToken);
+    }
+
+    public async Task<bool> RemoveStaffAssignmentAsync(
+        Guid queueId,
+        Guid staffUserId,
+        CancellationToken cancellationToken)
+    {
+        var assignment = await _context.QueueStaffAssignments
+            .FirstOrDefaultAsync(
+                a => a.QueueId == queueId && a.StaffUserId == staffUserId,
+                cancellationToken);
+
+        if (assignment is null)
+            return false;
+
+        _context.QueueStaffAssignments.Remove(assignment);
+        return true;
+    }
+
+    public async Task<IReadOnlyList<(Guid StaffUserId, string Name, string Email, bool IsActive)>>
+        GetStaffAssignmentsAsync(Guid queueId, CancellationToken cancellationToken)
+    {
+        return await _context.QueueStaffAssignments
+            .Where(a => a.QueueId == queueId)
+            .Join(
+                _context.Users,
+                assignment => assignment.StaffUserId,
+                user => user.Id,
+                (assignment, user) => new
+                {
+                    user.Id,
+                    user.Name,
+                    Email = user.Email.Value,
+                    user.IsActive,
+                    user.Role,
+                })
+            .Where(x => x.Role == UserRole.Staff)
+            .OrderBy(x => x.Name)
+            .Select(x => ValueTuple.Create(x.Id, x.Name, x.Email, x.IsActive))
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<QueueEntity>> GetQueuesAssignedToStaffAsync(
+        Guid staffUserId,
+        CancellationToken cancellationToken)
+    {
+        return await _context.QueueStaffAssignments
+            .Where(a => a.StaffUserId == staffUserId)
+            .Join(
+                _context.Queues,
+                assignment => assignment.QueueId,
+                queue => queue.Id,
+                (_, queue) => queue)
+            .OrderBy(q => q.CreatedAt)
             .ToListAsync(cancellationToken);
     }
 }

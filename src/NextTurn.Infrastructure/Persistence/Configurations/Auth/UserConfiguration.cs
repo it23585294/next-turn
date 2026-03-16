@@ -93,5 +93,13 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(u => u.MfaEnabled)
             .IsRequired()
             .HasDefaultValue(false);
+
+        builder.Property(u => u.StaffInviteTokenHash)
+            .HasMaxLength(128);
+
+        builder.Property(u => u.StaffInviteExpiresAt);
+
+        builder.HasIndex(u => u.StaffInviteTokenHash)
+            .HasDatabaseName("IX_Users_StaffInviteTokenHash");
     }
 }

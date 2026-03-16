@@ -3,6 +3,9 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NextTurn.API.Models.Organisations;
 using NextTurn.Application.Organisation.Commands.RegisterOrganisation;
+using NextTurn.Application.Organisation.Queries.ResolveMemberLogin;
+using NextTurn.Application.Organisation.Queries.ResolveOrganisationLogin;
+using NextTurn.Application.Organisation.Queries.ResolveOrganisationTenant;
 
 namespace NextTurn.API.Controllers;
 
@@ -69,6 +72,57 @@ public sealed class OrganisationsController : ControllerBase
 
         return Created(
             $"/api/organisations/{result.OrganisationId}",
-            new { result.OrganisationId, result.AdminUserId });
+            new { result.OrganisationId, result.AdminUserId, result.LoginPath });
+    }
+
+    /// <summary>
+    /// Resolve an organisation admin login path from an admin email address.
+    /// </summary>
+    [HttpPost("resolve-login")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(ResolveOrganisationLoginResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> ResolveLogin(
+        [FromBody] ResolveOrganisationLoginRequest request,
+        CancellationToken cancellationToken)
+    {
+        var query = new ResolveOrganisationLoginQuery(request.AdminEmail);
+        var result = await _sender.Send(query, cancellationToken);
+
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Resolve workspace login options for a member email (staff/admin).
+    /// </summary>
+    [HttpPost("resolve-member-login")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(IReadOnlyList<MemberWorkspaceOption>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> ResolveMemberLogin(
+        [FromBody] ResolveMemberLoginRequest request,
+        CancellationToken cancellationToken)
+    {
+        var query = new ResolveMemberLoginQuery(request.Email);
+        var result = await _sender.Send(query, cancellationToken);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Resolve organisation tenant details from a public organisation login slug.
+    /// </summary>
+    [HttpGet("resolve-tenant")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(ResolveOrganisationTenantResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> ResolveTenant(
+        [FromQuery] string slug,
+        CancellationToken cancellationToken)
+    {
+        var query = new ResolveOrganisationTenantQuery(slug);
+        var result = await _sender.Send(query, cancellationToken);
+        return Ok(result);
     }
 }

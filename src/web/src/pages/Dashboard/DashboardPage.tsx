@@ -23,6 +23,8 @@ import { useNavigate, Link } from 'react-router-dom'
 import { clearToken } from '../../utils/authToken'
 import { getTokenPayload } from '../../utils/authToken'
 import { getMyQueues, type MyQueueEntry } from '../../api/queues'
+import { cancelAppointment, getMyAppointmentBookings, type MyAppointmentBooking } from '../../api/appointments'
+import type { ApiError } from '../../types/api'
 import logoImg from '../../assets/nextTurn-logo.png'
 import styles from './DashboardPage.module.css'
 
@@ -50,21 +52,43 @@ export function DashboardPage() {
 
   const { name, email, role } = payload
   const badge = roleBadgeLabel(role)
-
   // ── My active queues ──────────────────────────────────────────────────
   const [queues, setQueues] = useState<MyQueueEntry[]>([])
   const [queuesLoading, setQueuesLoading] = useState(true)
   const [queuesError, setQueuesError] = useState<string | null>(null)
 
+  const [appointments, setAppointments] = useState<MyAppointmentBooking[]>([])
+  const [appointmentsLoading, setAppointmentsLoading] = useState(true)
+  const [appointmentsError, setAppointmentsError] = useState<string | null>(null)
+  const [appointmentsSuccess, setAppointmentsSuccess] = useState<string | null>(null)
+  const [cancellingAppointmentId, setCancellingAppointmentId] = useState<string | null>(null)
+
   useEffect(() => {
     getMyQueues()
       .then(data => { setQueues(data); setQueuesLoading(false) })
       .catch(() => { setQueuesError('Could not load your queues.'); setQueuesLoading(false) })
+
+    getMyAppointmentBookings()
+      .then(data => { setAppointments(data); setAppointmentsLoading(false) })
+      .catch(() => { setAppointmentsError('Could not load your appointment bookings.'); setAppointmentsLoading(false) })
   }, [])
+
+  useEffect(() => {
+    if (!appointmentsSuccess) return
+
+    const timer = window.setTimeout(() => {
+      setAppointmentsSuccess(null)
+    }, 4000)
+
+    return () => window.clearTimeout(timer)
+  }, [appointmentsSuccess])
 
   // ── Join by link ─────────────────────────────────────────────────────
   const [linkInput, setLinkInput] = useState('')
   const [linkError, setLinkError] = useState<string | null>(null)
+
+  const [appointmentLinkInput, setAppointmentLinkInput] = useState('')
+  const [appointmentLinkError, setAppointmentLinkError] = useState<string | null>(null)
 
   function handleJoinByLink() {
     setLinkError(null)
@@ -80,9 +104,44 @@ export function DashboardPage() {
     }
   }
 
+  function handleOpenAppointmentByLink() {
+    setAppointmentLinkError(null)
+    try {
+      // Accept full URLs or just /appointments/:tenantId/:appointmentProfileId path.
+      const url = new URL(appointmentLinkInput.includes('://') ? appointmentLinkInput : `https://x.com${appointmentLinkInput}`)
+      const match = url.pathname.match(/\/appointments\/([^/]+)\/([^/]+)/)
+      if (!match) throw new Error('invalid')
+
+      const [, linkTenant, linkProfile] = match
+      navigate(`/appointments/${linkTenant}/${linkProfile}`)
+    } catch {
+      setAppointmentLinkError('Invalid appointment link. Paste the full URL or the /appointments/tenant/profile path.')
+    }
+  }
+
   function handleLogout() {
     clearToken()
     navigate('/', { replace: true })
+  }
+
+  async function handleCancelAppointment(appointment: MyAppointmentBooking) {
+    const shouldCancel = window.confirm('Cancel this appointment booking?')
+    if (!shouldCancel) return
+
+    setAppointmentsError(null)
+    setAppointmentsSuccess(null)
+    setCancellingAppointmentId(appointment.appointmentId)
+
+    try {
+      await cancelAppointment(appointment.appointmentId, appointment.organisationId)
+      setAppointments(prev => prev.filter(a => a.appointmentId !== appointment.appointmentId))
+      setAppointmentsSuccess('Appointment booking cancelled successfully.')
+    } catch (err) {
+      const apiErr = err as ApiError
+      setAppointmentsError(apiErr.detail ?? 'Could not cancel this appointment booking.')
+    } finally {
+      setCancellingAppointmentId(null)
+    }
   }
 
   return (
@@ -171,6 +230,66 @@ export function DashboardPage() {
             )}
           </section>
 
+          <section className={styles.queueSection} aria-label="My active appointment bookings">
+            <div className={styles.sectionHeader}>
+              <CalendarIcon />
+              <h2 className={styles.sectionTitle}>My Active Appointment Bookings</h2>
+            </div>
+
+            {appointmentsLoading && (
+              <div className={styles.queuePlaceholder}>
+                <span className={styles.queueSpinner} aria-hidden="true" />
+                <span>Loading bookings…</span>
+              </div>
+            )}
+
+            {!appointmentsLoading && appointmentsError && (
+              <p className={styles.queueError}>{appointmentsError}</p>
+            )}
+
+            {!appointmentsLoading && !appointmentsError && appointmentsSuccess && (
+              <p className={styles.queueSuccess}>{appointmentsSuccess}</p>
+            )}
+
+            {!appointmentsLoading && !appointmentsError && appointments.length === 0 && (
+              <p className={styles.queueEmpty}>You don't have any active appointment bookings yet.</p>
+            )}
+
+            {!appointmentsLoading && appointments.length > 0 && (
+              <ul className={styles.queueList}>
+                {appointments.map(a => (
+                  <li key={a.appointmentId} className={styles.appointmentCard}>
+                    <div className={styles.appointmentInfo}>
+                      <span className={styles.queueCardName}>{a.appointmentProfileName}</span>
+                      <span className={styles.appointmentMeta}>{a.organisationName}</span>
+                      <span className={styles.appointmentMeta}>
+                        {formatDashboardSlot(a.slotStart, a.slotEnd)}
+                      </span>
+                    </div>
+
+                    <div className={styles.appointmentActions}>
+                      <Link
+                        to={`/appointments/${a.organisationId}/${a.appointmentProfileId}`}
+                        className={styles.queueJoinLink}
+                        aria-label={`View appointment booking ${a.appointmentProfileName}`}
+                      >
+                        View &rarr;
+                      </Link>
+                      <button
+                        type="button"
+                        className={styles.appointmentCancelBtn}
+                        onClick={() => handleCancelAppointment(a)}
+                        disabled={cancellingAppointmentId === a.appointmentId}
+                      >
+                        {cancellingAppointmentId === a.appointmentId ? 'Cancelling...' : 'Cancel'}
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
           {/* ── Join by link ─────────────────────────────────────────── */}
           <section className={styles.joinWidget} aria-label="Join a queue by link">
             <div className={styles.sectionHeader}>
@@ -200,6 +319,34 @@ export function DashboardPage() {
             {linkError && <p className={styles.joinWidgetError}>{linkError}</p>}
           </section>
 
+          <section className={styles.joinWidget} aria-label="Open appointment booking by link">
+            <div className={styles.sectionHeader}>
+              <CalendarIcon />
+              <h2 className={styles.sectionTitle}>Open Appointment by Link</h2>
+            </div>
+            <p className={styles.joinWidgetDesc}>Have an appointment booking URL? Paste it here.</p>
+            <div className={styles.joinWidgetRow}>
+              <input
+                className={styles.joinWidgetInput}
+                type="text"
+                placeholder="https://… or /appointments/tenant/profile"
+                value={appointmentLinkInput}
+                onChange={e => { setAppointmentLinkInput(e.target.value); setAppointmentLinkError(null) }}
+                onKeyDown={e => e.key === 'Enter' && handleOpenAppointmentByLink()}
+                aria-label="Appointment link"
+              />
+              <button
+                className={styles.joinWidgetBtn}
+                onClick={handleOpenAppointmentByLink}
+                type="button"
+                disabled={!appointmentLinkInput.trim()}
+              >
+                Go
+              </button>
+            </div>
+            {appointmentLinkError && <p className={styles.joinWidgetError}>{appointmentLinkError}</p>}
+          </section>
+
           {/* Auth flow confirmation — useful during demo / grading */}
           <div className={styles.authCard} role="note">
             <CheckCircleIcon />
@@ -215,6 +362,17 @@ export function DashboardPage() {
       </main>
     </div>
   )
+}
+
+function formatDashboardSlot(slotStart: string, slotEnd: string): string {
+  const start = new Date(slotStart)
+  const end = new Date(slotEnd)
+
+  const date = start.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })
+  const from = start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  const to = end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+
+  return `${date} · ${from} - ${to}`
 }
 
 /* ------------------------------------------------------------------ */
@@ -262,6 +420,18 @@ function LinkIcon() {
       stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/>
       <path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/>
+    </svg>
+  )
+}
+
+function CalendarIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+      <line x1="16" y1="2" x2="16" y2="6"/>
+      <line x1="8" y1="2" x2="8" y2="6"/>
+      <line x1="3" y1="10" x2="21" y2="10"/>
     </svg>
   )
 }

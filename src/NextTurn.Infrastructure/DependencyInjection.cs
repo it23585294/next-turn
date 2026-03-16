@@ -2,9 +2,11 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
 using NextTurn.Application.Common.Interfaces;
+using NextTurn.Domain.Appointment.Repositories;
 using NextTurn.Domain.Auth.Repositories;
 using NextTurn.Domain.Organisation.Repositories;
 using NextTurn.Domain.Queue.Repositories;
+using NextTurn.Infrastructure.Appointment;
 using NextTurn.Infrastructure.Auth;
 using NextTurn.Infrastructure.BusinessRegistry;
 using NextTurn.Infrastructure.Email;
@@ -57,6 +59,7 @@ public static class DependencyInjection
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IOrganisationRepository, OrganisationRepository>();
         services.AddScoped<IQueueRepository, QueueRepository>();
+        services.AddScoped<IAppointmentRepository, AppointmentRepository>();
 
         // ── Security ──────────────────────────────────────────────────────────
         // Singleton is safe — BcryptPasswordHasher holds no state.

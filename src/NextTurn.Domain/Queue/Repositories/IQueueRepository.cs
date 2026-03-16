@@ -48,6 +48,14 @@ public interface IQueueRepository
     Task AddEntryAsync(QueueEntry entry, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Cancels the user's active entry (<see cref="QueueEntryStatus.Waiting"/> or
+    /// <see cref="QueueEntryStatus.Serving"/>) in the specified queue.
+    /// Returns <c>true</c> when an active entry was found and cancelled; otherwise <c>false</c>.
+    /// The caller is responsible for committing the unit of work (SaveChangesAsync).
+    /// </summary>
+    Task<bool> CancelEntryAsync(Guid queueId, Guid userId, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Returns <c>true</c> if the user already has an active entry
     /// (<see cref="QueueEntryStatus.Waiting"/> or <see cref="QueueEntryStatus.Serving"/>)
     /// in the specified queue.
@@ -86,4 +94,34 @@ public interface IQueueRepository
     /// </summary>
     Task<IReadOnlyList<(Guid QueueId, Guid OrganisationId, string QueueName, int TicketNumber, string Status)>>
         GetUserActiveEntriesAsync(Guid userId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Returns the currently serving entry in a queue, or <c>null</c> if none is being served.
+    /// </summary>
+    Task<QueueEntry?> GetCurrentServingEntryAsync(Guid queueId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Returns the next waiting entry (lowest ticket number) in a queue, or <c>null</c>
+    /// if no one is waiting.
+    /// </summary>
+    Task<QueueEntry?> GetNextWaitingEntryAsync(Guid queueId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Returns all waiting entries for a queue ordered by ticket number.
+    /// Used by the staff dashboard to show who is next.
+    /// </summary>
+    Task<IReadOnlyList<QueueEntry>> GetWaitingEntriesAsync(Guid queueId, CancellationToken cancellationToken);
+
+    Task<bool> IsStaffAssignedToQueueAsync(Guid queueId, Guid staffUserId, CancellationToken cancellationToken);
+
+    Task<bool> IsStaffAlreadyAssignedAsync(Guid queueId, Guid staffUserId, CancellationToken cancellationToken);
+
+    Task AddStaffAssignmentAsync(Guid organisationId, Guid queueId, Guid staffUserId, CancellationToken cancellationToken);
+
+    Task<bool> RemoveStaffAssignmentAsync(Guid queueId, Guid staffUserId, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<(Guid StaffUserId, string Name, string Email, bool IsActive)>>
+        GetStaffAssignmentsAsync(Guid queueId, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<QueueEntity>> GetQueuesAssignedToStaffAsync(Guid staffUserId, CancellationToken cancellationToken);
 }

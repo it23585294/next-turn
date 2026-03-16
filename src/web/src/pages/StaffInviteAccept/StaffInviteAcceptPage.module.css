@@ -1,0 +1,84 @@
+.page {
+  min-height: 100vh;
+  background: linear-gradient(170deg, #f5fbf7 0%, #eef8f0 52%, #e8f4eb 100%);
+  color: var(--color-text-primary);
+}
+
+.header {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.logo {
+  width: 128px;
+  height: auto;
+}
+
+.main {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 16px 20px 40px;
+}
+
+.card {
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  background: var(--color-white);
+  box-shadow: var(--shadow-md);
+  padding: 20px;
+}
+
+.title {
+  margin: 0;
+  font-size: 1.35rem;
+}
+
+.subtitle {
+  margin: 8px 0 16px;
+  color: var(--color-text-secondary);
+}
+
+.form {
+  display: grid;
+  gap: 10px;
+}
+
+.label {
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: var(--color-text-secondary);
+}
+
+.input {
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 0.95rem;
+}
+
+.submitBtn {
+  margin-top: 8px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-hover));
+  color: var(--color-accent-text);
+  font-weight: 700;
+  padding: 10px 16px;
+  cursor: pointer;
+}
+
+.submitBtn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.errorText {
+  margin: 12px 0 0;
+  color: var(--color-error);
+}
+
+.successText {
+  margin: 12px 0 0;
+  color: var(--color-success);
+}
