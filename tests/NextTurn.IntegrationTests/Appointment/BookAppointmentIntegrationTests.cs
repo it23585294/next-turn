@@ -2,7 +2,12 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using FluentAssertions;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using NextTurn.Domain.Appointment.Entities;
+using NextTurn.Domain.Appointment.Enums;
 using NextTurn.Domain.Auth;
+using NextTurn.Infrastructure.Persistence;
 
 namespace NextTurn.IntegrationTests.Appointment;
 
@@ -13,6 +18,7 @@ public sealed class BookAppointmentIntegrationTests
     private readonly NextTurnWebApplicationFactory _factory;
 
     private Guid _tenantId;
+    private Guid _appointmentProfileId;
 
     public BookAppointmentIntegrationTests(NextTurnWebApplicationFactory factory)
     {
@@ -23,6 +29,15 @@ public sealed class BookAppointmentIntegrationTests
     {
         await _factory.ResetDatabaseAsync();
         (_tenantId, _) = await _factory.SeedQueueAsync();
+
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+        var profile = AppointmentProfile.Create(_tenantId, "Integration Test Profile");
+        db.AppointmentProfiles.Add(profile);
+        await db.SaveChangesAsync();
+
+        _appointmentProfileId = profile.Id;
     }
 
     public Task DisposeAsync() => Task.CompletedTask;
@@ -30,12 +45,14 @@ public sealed class BookAppointmentIntegrationTests
     [Fact]
     public async Task BookAppointment_WithValidRequest_Returns200AndAppointmentId()
     {
-        var client = AuthenticatedClient(UserRole.User, Guid.NewGuid(), _tenantId);
+        var userId = Guid.NewGuid();
+        var client = AuthenticatedClient(UserRole.User, userId, _tenantId);
         var (slotStart, slotEnd) = SlotForTomorrow(10, 0);
 
         var response = await client.PostAsJsonAsync("/api/appointments", new
         {
             organisationId = _tenantId,
+            appointmentProfileId = _appointmentProfileId,
             slotStart,
             slotEnd,
         });
@@ -45,6 +62,21 @@ public sealed class BookAppointmentIntegrationTests
         var body = await response.Content.ReadFromJsonAsync<BookAppointmentApiResult>();
         body.Should().NotBeNull();
         body!.AppointmentId.Should().NotBeEmpty();
+
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+        var persisted = await db.Appointments
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(a => a.Id == body.AppointmentId);
+
+        persisted.Should().NotBeNull();
+        persisted!.OrganisationId.Should().Be(_tenantId);
+        persisted.AppointmentProfileId.Should().Be(_appointmentProfileId);
+        persisted.UserId.Should().Be(userId);
+        persisted.Status.Should().Be(AppointmentStatus.Confirmed);
+        persisted.SlotStart.Should().Be(slotStart);
+        persisted.SlotEnd.Should().Be(slotEnd);
     }
 
     [Fact]
@@ -58,6 +90,7 @@ public sealed class BookAppointmentIntegrationTests
         var first = await firstClient.PostAsJsonAsync("/api/appointments", new
         {
             organisationId = _tenantId,
+            appointmentProfileId = _appointmentProfileId,
             slotStart,
             slotEnd,
         });
@@ -67,6 +100,7 @@ public sealed class BookAppointmentIntegrationTests
         var second = await secondClient.PostAsJsonAsync("/api/appointments", new
         {
             organisationId = _tenantId,
+            appointmentProfileId = _appointmentProfileId,
             slotStart,
             slotEnd,
         });
@@ -89,6 +123,7 @@ public sealed class BookAppointmentIntegrationTests
         var response = await client.PostAsJsonAsync("/api/appointments", new
         {
             organisationId = _tenantId,
+            appointmentProfileId = _appointmentProfileId,
             slotStart,
             slotEnd,
         });
@@ -100,12 +135,24 @@ public sealed class BookAppointmentIntegrationTests
     public async Task GetAvailableSlots_IsFilteredByOrganisationAndDate()
     {
         var (otherTenantId, _) = await _factory.SeedQueueAsync();
+        Guid otherProfileId;
+
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var otherProfile = AppointmentProfile.Create(otherTenantId, "Other Org Profile");
+            db.AppointmentProfiles.Add(otherProfile);
+            await db.SaveChangesAsync();
+            otherProfileId = otherProfile.Id;
+        }
+
         var (slotStart, slotEnd) = SlotForTomorrow(14, 0);
 
         var bookingClient = AuthenticatedClient(UserRole.User, Guid.NewGuid(), _tenantId);
         var booking = await bookingClient.PostAsJsonAsync("/api/appointments", new
         {
             organisationId = _tenantId,
+            appointmentProfileId = _appointmentProfileId,
             slotStart,
             slotEnd,
         });
@@ -114,7 +161,7 @@ public sealed class BookAppointmentIntegrationTests
         var date = DateOnly.FromDateTime(slotStart.UtcDateTime).ToString("yyyy-MM-dd");
 
         var orgAClient = AuthenticatedClient(UserRole.User, Guid.NewGuid(), _tenantId);
-        var orgASlotsResponse = await orgAClient.GetAsync($"/api/appointments/slots?organisationId={_tenantId}&date={date}");
+        var orgASlotsResponse = await orgAClient.GetAsync($"/api/appointments/slots?organisationId={_tenantId}&appointmentProfileId={_appointmentProfileId}&date={date}");
         orgASlotsResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
         var orgASlots = await orgASlotsResponse.Content.ReadFromJsonAsync<List<SlotDto>>();
@@ -123,7 +170,7 @@ public sealed class BookAppointmentIntegrationTests
             "booked slot should be returned as unavailable (IsBooked=true)");
 
         var orgBClient = AuthenticatedClient(UserRole.User, Guid.NewGuid(), otherTenantId);
-        var orgBSlotsResponse = await orgBClient.GetAsync($"/api/appointments/slots?organisationId={otherTenantId}&date={date}");
+        var orgBSlotsResponse = await orgBClient.GetAsync($"/api/appointments/slots?organisationId={otherTenantId}&appointmentProfileId={otherProfileId}&date={date}");
         orgBSlotsResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
         var orgBSlots = await orgBSlotsResponse.Content.ReadFromJsonAsync<List<SlotDto>>();
