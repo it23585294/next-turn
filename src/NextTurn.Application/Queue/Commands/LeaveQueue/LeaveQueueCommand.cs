@@ -20,4 +20,4 @@ namespace NextTurn.Application.Queue.Commands.LeaveQueue;
 public record LeaveQueueCommand(
     Guid QueueId,
     Guid UserId
-) : IRequest;
+) : IRequest<Unit>;

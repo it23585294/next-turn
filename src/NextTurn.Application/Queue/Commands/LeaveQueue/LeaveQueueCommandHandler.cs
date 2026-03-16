@@ -19,7 +19,7 @@ namespace NextTurn.Application.Queue.Commands.LeaveQueue;
 /// The repository operation is scoped by user and queue ID, ensuring the user can
 /// only cancel their own entry and cannot access other users' entries.
 /// </summary>
-public class LeaveQueueCommandHandler : IRequestHandler<LeaveQueueCommand>
+public class LeaveQueueCommandHandler : IRequestHandler<LeaveQueueCommand, Unit>
 {
     private readonly IQueueRepository _queueRepository;
     private readonly IApplicationDbContext _context;
@@ -32,7 +32,7 @@ public class LeaveQueueCommandHandler : IRequestHandler<LeaveQueueCommand>
         _context = context;
     }
 
-    public async Task Handle(
+    public async Task<Unit> Handle(
         LeaveQueueCommand command,
         CancellationToken cancellationToken)
     {
@@ -45,5 +45,7 @@ public class LeaveQueueCommandHandler : IRequestHandler<LeaveQueueCommand>
 
         // Step 2 — persist the state transition
         await _context.SaveChangesAsync(cancellationToken);
+
+        return Unit.Value;
     }
 }
