@@ -2,8 +2,14 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using FluentAssertions;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using NextTurn.Domain.Auth.Entities;
+using NextTurn.Domain.Auth.ValueObjects;
 using NextTurn.Domain.Auth;
+using NextTurn.Domain.Queue.Enums;
 using NextTurn.IntegrationTests;
+using NextTurn.Infrastructure.Persistence;
 
 namespace NextTurn.IntegrationTests.Queue;
 
@@ -22,6 +28,7 @@ public sealed class StaffQueueDashboardIntegrationTests
 
     private Guid _tenantId;
     private Guid _queueId;
+    private Guid _staffUserId;
 
     private static readonly Guid UserAId = Guid.Parse("aaaaaaaa-0000-0000-0000-000000000001");
     private static readonly Guid UserBId = Guid.Parse("aaaaaaaa-0000-0000-0000-000000000002");
@@ -35,6 +42,28 @@ public sealed class StaffQueueDashboardIntegrationTests
     {
         await _factory.ResetDatabaseAsync();
         (_tenantId, _queueId) = await _factory.SeedQueueAsync();
+
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+        var staffUser = User.Create(
+            tenantId: _tenantId,
+            name: "Queue Staff",
+            email: new EmailAddress("staff.integration@nextturn.dev"),
+            phone: null,
+            passwordHash: "integration-password-hash",
+            role: UserRole.Staff);
+
+        staffUser.Activate();
+
+        db.Users.Add(staffUser);
+        db.QueueStaffAssignments.Add(NextTurn.Domain.Queue.Entities.QueueStaffAssignment.Create(
+            _tenantId,
+            _queueId,
+            staffUser.Id));
+
+        await db.SaveChangesAsync();
+        _staffUserId = staffUser.Id;
     }
 
     public Task DisposeAsync() => Task.CompletedTask;
@@ -95,6 +124,50 @@ public sealed class StaffQueueDashboardIntegrationTests
 
         dashboardBody["currentlyServing"].ValueKind.Should().Be(JsonValueKind.Null);
         dashboardBody["waitingCount"].GetInt32().Should().Be(0);
+
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+        var servedEntry = await db.QueueEntries
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(e => e.QueueId == _queueId && e.UserId == UserAId);
+
+        servedEntry.Should().NotBeNull();
+        servedEntry!.Status.Should().Be(QueueEntryStatus.Served);
+    }
+
+    [Fact]
+    public async Task CallNext_ThenMarkServed_PersistsServingToServedTransitionInDatabase()
+    {
+        await JoinQueueAsync(UserAId);
+
+        var callResponse = await StaffClient().PostAsync($"/api/queues/{_queueId}/call-next", null);
+        callResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        await using (var servingScope = _factory.Services.CreateAsyncScope())
+        {
+            var db = servingScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+            var servingEntry = await db.QueueEntries
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(e => e.QueueId == _queueId && e.UserId == UserAId);
+
+            servingEntry.Should().NotBeNull();
+            servingEntry!.Status.Should().Be(QueueEntryStatus.Serving);
+        }
+
+        var servedResponse = await StaffClient().PostAsync($"/api/queues/{_queueId}/served", null);
+        servedResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        await using var servedScope = _factory.Services.CreateAsyncScope();
+        var servedDb = servedScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+        var servedEntryAfterTransition = await servedDb.QueueEntries
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(e => e.QueueId == _queueId && e.UserId == UserAId);
+
+        servedEntryAfterTransition.Should().NotBeNull();
+        servedEntryAfterTransition!.Status.Should().Be(QueueEntryStatus.Served);
     }
 
     [Fact]
@@ -133,7 +206,7 @@ public sealed class StaffQueueDashboardIntegrationTests
 
     private HttpClient StaffClient()
     {
-        var token = _factory.CreateTokenForRole(UserRole.Staff, userId: Guid.NewGuid(), tenantId: _tenantId);
+        var token = _factory.CreateTokenForRole(UserRole.Staff, userId: _staffUserId, tenantId: _tenantId);
         return AuthenticatedClient(token);
     }
 
