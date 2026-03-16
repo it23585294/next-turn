@@ -31,6 +31,17 @@ public sealed class OrganisationRepository : IOrganisationRepository
     }
 
     /// <inheritdoc/>
+    public async Task<OrganisationEntity?> GetBySlugAsync(
+        string slug,
+        CancellationToken cancellationToken = default)
+    {
+        var normalizedSlug = slug.Trim().ToLowerInvariant();
+
+        return await _context.Organisations
+            .FirstOrDefaultAsync(o => o.Slug == normalizedSlug, cancellationToken);
+    }
+
+    /// <inheritdoc/>
     public async Task<OrganisationEntity?> GetByAdminEmailAsync(
         string adminEmail,
         CancellationToken cancellationToken = default)

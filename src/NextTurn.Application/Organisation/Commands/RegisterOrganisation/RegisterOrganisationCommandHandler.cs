@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Text;
 using MediatR;
 using NextTurn.Application.Common.Interfaces;
 using NextTurn.Domain.Auth.Entities;
@@ -67,6 +68,8 @@ public class RegisterOrganisationCommandHandler
             throw new ConflictDomainException(
                 $"An organisation named '{command.OrgName}' is already registered.");
 
+        var slug = await GenerateUniqueSlugAsync(command.OrgName, cancellationToken);
+
         // Step 3 — construct domain objects (invariants validated inside constructors)
         var address    = new Address(command.AddressLine1, command.City,
                                      command.PostalCode,   command.Country);
@@ -75,7 +78,7 @@ public class RegisterOrganisationCommandHandler
         var adminEmail = new EmailAddress(command.AdminEmail);
 
         var organisation = OrganisationEntity.Create(
-            command.OrgName, address, orgType, adminEmail);
+            command.OrgName, slug, address, orgType, adminEmail);
 
         // Step 4 — generate a secure temporary password
         string temporaryPassword = GenerateTemporaryPassword();
@@ -105,7 +108,10 @@ public class RegisterOrganisationCommandHandler
             temporaryPassword: temporaryPassword,
             cancellationToken: cancellationToken);
 
-        return new RegisterOrganisationResult(organisation.Id, adminUser.Id);
+        return new RegisterOrganisationResult(
+            organisation.Id,
+            adminUser.Id,
+            $"/login/o/{organisation.Slug}");
     }
 
     /// <summary>
@@ -121,5 +127,56 @@ public class RegisterOrganisationCommandHandler
             result[i] = chars[bytes[i] % chars.Length];
 
         return new string(result);
+    }
+
+    private async Task<string> GenerateUniqueSlugAsync(
+        string organisationName,
+        CancellationToken cancellationToken)
+    {
+        var baseSlug = ToSlug(organisationName);
+
+        var suffix = 0;
+        while (true)
+        {
+            var candidate = suffix == 0 ? baseSlug : $"{baseSlug}-{suffix + 1}";
+            var existing = await _organisationRepository.GetBySlugAsync(candidate, cancellationToken);
+
+            if (existing is null)
+                return candidate;
+
+            suffix++;
+        }
+    }
+
+    private static string ToSlug(string value)
+    {
+        var lowered = value.Trim().ToLowerInvariant();
+        var sb = new StringBuilder(lowered.Length);
+        var previousHyphen = false;
+
+        foreach (var ch in lowered)
+        {
+            if (char.IsLetterOrDigit(ch))
+            {
+                sb.Append(ch);
+                previousHyphen = false;
+                continue;
+            }
+
+            if (!previousHyphen)
+            {
+                sb.Append('-');
+                previousHyphen = true;
+            }
+        }
+
+        var slug = sb.ToString().Trim('-');
+        if (slug.Length == 0)
+            slug = "workspace";
+
+        if (slug.Length < 3)
+            slug = slug.PadRight(3, 'x');
+
+        return slug.Length > 50 ? slug[..50] : slug;
     }
 }

@@ -50,6 +50,7 @@ function App() {
       {/* Org-member auth — scoped to a specific org */}
       <Route path="/register/:tenantId" element={<RegisterPage />} />
       <Route path="/login/:tenantId"    element={<LoginPage />} />
+      <Route path="/login/o/:orgSlug"   element={<LoginPage />} />
 
       {/* Any authenticated user */}
       <Route

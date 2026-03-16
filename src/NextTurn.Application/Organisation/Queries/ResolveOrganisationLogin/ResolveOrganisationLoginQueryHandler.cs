@@ -28,6 +28,6 @@ public sealed class ResolveOrganisationLoginQueryHandler
         return new ResolveOrganisationLoginResult(
             organisation.Id,
             organisation.Name,
-            $"/login/{organisation.Id}");
+            $"/login/o/{organisation.Slug}");
     }
 }

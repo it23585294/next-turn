@@ -20,12 +20,19 @@ export interface OrgRegistrationPayload {
 export interface OrgRegistrationResult {
   organisationId: string
   adminUserId: string
+  loginPath?: string
 }
 
 export interface ResolveOrganisationLoginResult {
   organisationId: string
   organisationName: string
   loginPath: string
+}
+
+export interface ResolveOrganisationTenantResult {
+  organisationId: string
+  organisationName: string
+  slug: string
 }
 
 /**
@@ -72,6 +79,27 @@ export async function resolveOrganisationLogin(
     const { data } = await apiClient.post<ResolveOrganisationLoginResult>(
       '/organisations/resolve-login',
       { adminEmail },
+    )
+    return data
+  } catch (err) {
+    const parsed: ApiError = parseApiError(err)
+    throw parsed
+  }
+}
+
+/**
+ * GET /api/organisations/resolve-tenant?slug={slug}
+ * Resolves organisation tenant details from a public org slug.
+ */
+export async function resolveOrganisationTenant(
+  slug: string,
+): Promise<ResolveOrganisationTenantResult> {
+  try {
+    const { data } = await apiClient.get<ResolveOrganisationTenantResult>(
+      '/organisations/resolve-tenant',
+      {
+        params: { slug },
+      }
     )
     return data
   } catch (err) {

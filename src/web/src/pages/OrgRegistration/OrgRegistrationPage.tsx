@@ -37,7 +37,7 @@ import styles from './OrgRegistrationPage.module.css'
 export function OrgRegistrationPage() {
   const [serverError, setServerError] = useState<string | null>(null)
   const [submitted, setSubmitted] = useState(false)
-  const [organisationId, setOrganisationId] = useState<string | null>(null)
+  const [loginPath, setLoginPath] = useState<string | null>(null)
 
   const {
     register,
@@ -53,7 +53,7 @@ export function OrgRegistrationPage() {
 
     try {
       const result = await registerOrganisation(toOrgRegistrationPayload(data))
-      setOrganisationId(result.organisationId)
+      setLoginPath(result.loginPath ?? `/login/${result.organisationId}`)
       setSubmitted(true)
     } catch (err) {
       const apiErr = err as ApiError
@@ -81,7 +81,7 @@ export function OrgRegistrationPage() {
       <div className={styles.page}>
         <HeroPanel />
         <div className={styles.formPanel}>
-          <SuccessCard organisationId={organisationId} />
+          <SuccessCard loginPath={loginPath} />
         </div>
       </div>
     )
@@ -312,8 +312,8 @@ function HeroPanel() {
   )
 }
 
-function SuccessCard({ organisationId }: { organisationId: string | null }) {
-  const loginUrl = organisationId ? `/login/${organisationId}` : null
+function SuccessCard({ loginPath }: { loginPath: string | null }) {
+  const loginUrl = loginPath
 
   return (
     <div className={styles.successCard}>

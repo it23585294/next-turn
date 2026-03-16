@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using NextTurn.API.Models.Organisations;
 using NextTurn.Application.Organisation.Commands.RegisterOrganisation;
 using NextTurn.Application.Organisation.Queries.ResolveOrganisationLogin;
+using NextTurn.Application.Organisation.Queries.ResolveOrganisationTenant;
 
 namespace NextTurn.API.Controllers;
 
@@ -70,7 +71,7 @@ public sealed class OrganisationsController : ControllerBase
 
         return Created(
             $"/api/organisations/{result.OrganisationId}",
-            new { result.OrganisationId, result.AdminUserId });
+            new { result.OrganisationId, result.AdminUserId, result.LoginPath });
     }
 
     /// <summary>
@@ -88,6 +89,23 @@ public sealed class OrganisationsController : ControllerBase
         var query = new ResolveOrganisationLoginQuery(request.AdminEmail);
         var result = await _sender.Send(query, cancellationToken);
 
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Resolve organisation tenant details from a public organisation login slug.
+    /// </summary>
+    [HttpGet("resolve-tenant")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(ResolveOrganisationTenantResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> ResolveTenant(
+        [FromQuery] string slug,
+        CancellationToken cancellationToken)
+    {
+        var query = new ResolveOrganisationTenantQuery(slug);
+        var result = await _sender.Send(query, cancellationToken);
         return Ok(result);
     }
 }

@@ -2,6 +2,7 @@ using NextTurn.Domain.Auth.ValueObjects;
 using NextTurn.Domain.Common;
 using NextTurn.Domain.Organisation.Enums;
 using NextTurn.Domain.Organisation.ValueObjects;
+using System.Text;
 
 namespace NextTurn.Domain.Organisation.Entities;
 
@@ -23,6 +24,7 @@ public class Organisation
     // ── Identity ─────────────────────────────────────────────────────────────
     public Guid                Id          { get; }
     public string              Name        { get; private set; }
+    public string              Slug        { get; private set; }
     public Address             Address     { get; private set; }
     public OrganisationType    Type        { get; private set; }
     public OrganisationStatus  Status      { get; private set; }
@@ -34,6 +36,7 @@ public class Organisation
     {
         // default! suppresses CS8618 — EF Core assigns these before the instance is ever read.
         Name       = default!;
+        Slug       = default!;
         Address    = default!;
         AdminEmail = default!;
     }
@@ -41,6 +44,7 @@ public class Organisation
     private Organisation(
         Guid               id,
         string             name,
+        string             slug,
         Address            address,
         OrganisationType   type,
         OrganisationStatus status,
@@ -49,6 +53,7 @@ public class Organisation
     {
         Id         = id;
         Name       = name;
+        Slug       = slug;
         Address    = address;
         Type       = type;
         Status     = status;
@@ -61,6 +66,7 @@ public class Organisation
     /// </summary>
     public static Organisation Create(
         string           name,
+        string           slug,
         Address          address,
         OrganisationType type,
         EmailAddress     adminEmail)
@@ -71,14 +77,67 @@ public class Organisation
         if (name.Length > 200)
             throw new DomainException("Organisation name must not exceed 200 characters.");
 
+        if (string.IsNullOrWhiteSpace(slug))
+            throw new DomainException("Organisation slug is required.");
+
+        if (slug.Length is < 3 or > 64)
+            throw new DomainException("Organisation slug must be between 3 and 64 characters.");
+
         return new Organisation(
             id:         Guid.NewGuid(),
             name:       name.Trim(),
+            slug:       slug.Trim().ToLowerInvariant(),
             address:    address,
             type:       type,
             status:     OrganisationStatus.PendingApproval,
             adminEmail: adminEmail,
             createdAt:  DateTimeOffset.UtcNow);
+    }
+
+    /// <summary>
+    /// Backward-compatible factory overload that derives a slug from the organisation name.
+    /// Registration flow should prefer the overload that provides an explicit unique slug.
+    /// </summary>
+    public static Organisation Create(
+        string           name,
+        Address          address,
+        OrganisationType type,
+        EmailAddress     adminEmail)
+    {
+        var generatedSlug = ToSlug(name);
+        return Create(name, generatedSlug, address, type, adminEmail);
+    }
+
+    private static string ToSlug(string value)
+    {
+        var lowered = value.Trim().ToLowerInvariant();
+        var sb = new StringBuilder(lowered.Length);
+        var previousHyphen = false;
+
+        foreach (var ch in lowered)
+        {
+            if (char.IsLetterOrDigit(ch))
+            {
+                sb.Append(ch);
+                previousHyphen = false;
+                continue;
+            }
+
+            if (!previousHyphen)
+            {
+                sb.Append('-');
+                previousHyphen = true;
+            }
+        }
+
+        var slug = sb.ToString().Trim('-');
+        if (slug.Length == 0)
+            slug = "workspace";
+
+        if (slug.Length < 3)
+            slug = slug.PadRight(3, 'x');
+
+        return slug.Length > 50 ? slug[..50] : slug;
     }
 
     // ── Status transitions (Sprint 2) ─────────────────────────────────────

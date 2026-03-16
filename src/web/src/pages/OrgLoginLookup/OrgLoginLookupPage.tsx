@@ -45,7 +45,7 @@ export function OrgLoginLookupPage() {
         <section className={styles.card}>
           <h1 className={styles.title}>Find Organisation Login</h1>
           <p className={styles.subtitle}>
-            Enter your organisation admin email to get your tenant login link.
+            Enter your organisation admin email to get your workspace login link.
           </p>
 
           <form onSubmit={handleSubmit} className={styles.form} noValidate>

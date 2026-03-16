@@ -16,6 +16,12 @@ public interface IOrganisationRepository
     Task<OrganisationEntity?> GetByNameAsync(string name, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Returns the organisation whose slug matches the provided value,
+    /// or null when none exists.
+    /// </summary>
+    Task<OrganisationEntity?> GetBySlugAsync(string slug, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Returns the organisation whose admin email matches the provided email,
     /// or null when none exists.
     /// </summary>

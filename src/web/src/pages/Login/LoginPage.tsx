@@ -18,11 +18,12 @@
 import { useForm, type SubmitHandler } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { loginSchema } from '../../schemas/loginSchema'
 import type { LoginFormValues } from '../../schemas/loginSchema'
 import { loginUser } from '../../api/auth'
+import { resolveOrganisationTenant } from '../../api/organisations'
 import type { ApiError } from '../../types/api'
 import { saveToken } from '../../utils/authToken'
 
@@ -37,9 +38,11 @@ import styles from './LoginPage.module.css'
 type BannerKind = 'error' | 'lockout' | 'ratelimit' | 'session'
 
 export function LoginPage() {
-  const { tenantId } = useParams<{ tenantId: string }>()
+  const { tenantId: routeTenantId, orgSlug } = useParams<{ tenantId: string; orgSlug: string }>()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
+  const [resolvedTenantId, setResolvedTenantId] = useState<string | null>(routeTenantId ?? null)
+  const [resolvingTenant, setResolvingTenant] = useState(false)
 
   // Show a soft info banner when the user was redirected here because their
   // session expired (401 interceptor in client.ts sets ?reason=session_expired).
@@ -49,6 +52,35 @@ export function LoginPage() {
       ? { kind: 'session', message: 'Your session has expired. Please sign in again.' }
       : null
   )
+
+  useEffect(() => {
+    if (routeTenantId) {
+      setResolvedTenantId(routeTenantId)
+      setResolvingTenant(false)
+      return
+    }
+
+    if (!orgSlug) {
+      setResolvedTenantId(null)
+      setResolvingTenant(false)
+      return
+    }
+
+    setResolvingTenant(true)
+    setBanner(null)
+
+    resolveOrganisationTenant(orgSlug)
+      .then(result => {
+        setResolvedTenantId(result.organisationId)
+      })
+      .catch(() => {
+        setResolvedTenantId(null)
+        setBanner({ kind: 'error', message: 'This organisation login link is invalid or expired.' })
+      })
+      .finally(() => {
+        setResolvingTenant(false)
+      })
+  }, [routeTenantId, orgSlug])
 
   const {
     register,
@@ -60,7 +92,7 @@ export function LoginPage() {
   })
 
   const onSubmit: SubmitHandler<LoginFormValues> = async (data) => {
-    if (!tenantId) {
+    if (!resolvedTenantId) {
       setBanner({ kind: 'error', message: 'This link is invalid. Please contact your organization.' })
       return
     }
@@ -68,7 +100,7 @@ export function LoginPage() {
     setBanner(null)
 
     try {
-      const result = await loginUser(tenantId, {
+      const result = await loginUser(resolvedTenantId, {
         email: data.email,
         password: data.password,
       })
@@ -85,10 +117,10 @@ export function LoginPage() {
 
       const destination =
         result.role === 'SystemAdmin' || result.role === 'OrgAdmin'
-          ? `/admin/${tenantId}`
+          ? `/admin/${resolvedTenantId}`
           : result.role === 'Staff'
-            ? `/staff/${tenantId}`
-            : `/dashboard/${tenantId}`
+            ? `/staff/${resolvedTenantId}`
+            : `/dashboard/${resolvedTenantId}`
 
       navigate(destination, { replace: true })
     } catch (err) {
@@ -115,7 +147,7 @@ export function LoginPage() {
     }
   }
 
-  if (!tenantId) {
+  if (!routeTenantId && !orgSlug) {
     return (
       <div className={styles.page}>
         <HeroPanel />
@@ -201,9 +233,10 @@ export function LoginPage() {
                 variant="primary"
                 size="lg"
                 fullWidth
-                loading={isSubmitting}
+                loading={isSubmitting || resolvingTenant}
+                disabled={resolvingTenant || !resolvedTenantId}
               >
-                Sign In
+                {resolvingTenant ? 'Preparing sign-in...' : 'Sign In'}
               </Button>
             </div>
           </form>
@@ -211,7 +244,7 @@ export function LoginPage() {
           {/* Footer */}
           <p className={styles.formFooter}>
             Don't have an account?{' '}
-            <Link to={`/register/${tenantId}`} className={styles.link}>
+            <Link to={resolvedTenantId ? `/register/${resolvedTenantId}` : '/find-org-login'} className={styles.link}>
               Create one
             </Link>
           </p>
