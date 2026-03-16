@@ -83,8 +83,14 @@ export function LoginPage() {
         return
       }
 
-      const isAdmin = result.role === 'OrgAdmin' || result.role === 'SystemAdmin'
-      navigate(isAdmin ? `/admin/${tenantId}` : `/dashboard/${tenantId}`, { replace: true })
+      const destination =
+        result.role === 'SystemAdmin' || result.role === 'OrgAdmin'
+          ? `/admin/${tenantId}`
+          : result.role === 'Staff'
+            ? `/staff/${tenantId}`
+            : `/dashboard/${tenantId}`
+
+      navigate(destination, { replace: true })
     } catch (err) {
       const apiErr = err as ApiError
 
