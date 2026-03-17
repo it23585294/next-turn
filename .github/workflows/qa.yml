@@ -10,6 +10,19 @@ jobs:
   test:
     name: Unit + Integration Tests
     runs-on: ubuntu-latest
+    services:
+      sqlserver:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: Y
+          SA_PASSWORD: NextTurn_Dev#2026
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'NextTurn_Dev#2026' -Q 'SELECT 1' -C || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 15
 
     steps:
       - name: Checkout
@@ -101,14 +114,79 @@ jobs:
             --no-build \
             --logger "trx;LogFileName=integration-tests.trx"
 
-      # ── Newman contract tests (Sprint 2 stretch) ──────────────────────────
-      # Only runs when a Postman collection is present in tests/postman/.
+      # ── Contract tests: OpenAPI + Newman ───────────────────────────────────
       - name: Setup Node
-        if: hashFiles('tests/postman/*.json') != ''
         uses: actions/setup-node@v4
         with:
           node-version: "22"
 
+      - name: Install EF Tools
+        if: hashFiles('tests/postman/*.json') != ''
+        run: dotnet tool install --global dotnet-ef
+
+      - name: Apply EF migrations for contract-test database
+        if: hashFiles('tests/postman/*.json') != ''
+        env:
+          ConnectionStrings__DefaultConnection: "Server=localhost,1433;Database=NextTurnContractTests;User Id=sa;Password=NextTurn_Dev#2026;TrustServerCertificate=True"
+          JwtSettings__Secret: "ContractTestSecretKey_AtLeast32Characters"
+          JwtSettings__Issuer: "https://api.nextturn.local"
+          JwtSettings__Audience: "NextTurnClient"
+        run: |
+          dotnet ef database update \
+            --project src/NextTurn.Infrastructure \
+            --startup-project src/NextTurn.API \
+            --connection "Server=localhost,1433;Database=NextTurnContractTests;User Id=sa;Password=NextTurn_Dev#2026;TrustServerCertificate=True"
+
+      - name: Start API for contract tests
+        if: hashFiles('tests/postman/*.json') != ''
+        env:
+          ASPNETCORE_ENVIRONMENT: Development
+          ASPNETCORE_URLS: http://localhost:5001
+          ConnectionStrings__DefaultConnection: "Server=localhost,1433;Database=NextTurnContractTests;User Id=sa;Password=NextTurn_Dev#2026;TrustServerCertificate=True"
+          JwtSettings__Secret: "ContractTestSecretKey_AtLeast32Characters"
+          JwtSettings__Issuer: "https://api.nextturn.local"
+          JwtSettings__Audience: "NextTurnClient"
+          AllowedOrigins: "http://localhost:5173"
+        run: |
+          nohup dotnet run --project src/NextTurn.API --configuration Release --no-build --no-launch-profile --urls http://localhost:5001 > /tmp/nextturn-api.log 2>&1 &
+          for i in {1..60}; do
+            if curl -fsS http://localhost:5001/openapi/v1.json >/dev/null 2>&1; then
+              echo "API is up"
+              break
+            fi
+            if [ "$i" -eq 60 ]; then
+              echo "API failed to start"
+              tail -n 200 /tmp/nextturn-api.log || true
+              exit 1
+            fi
+            sleep 2
+          done
+
+      - name: Download OpenAPI spec
+        if: hashFiles('tests/postman/*.json') != ''
+        run: |
+          mkdir -p tests/postman/openapi
+          curl -fsS http://localhost:5001/openapi/v1.json -o tests/postman/openapi/openapi.v1.json
+
+      - name: Validate OpenAPI spec
+        if: hashFiles('tests/postman/*.json') != ''
+        run: npx --yes swagger-cli validate tests/postman/openapi/openapi.v1.json
+
+      - name: Upload OpenAPI artifact
+        if: hashFiles('tests/postman/*.json') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: openapi-v1
+          path: tests/postman/openapi/openapi.v1.json
+
       - name: Run Newman contract tests
         if: hashFiles('tests/postman/*.json') != ''
-        run: npx newman run tests/postman/NextTurn.postman_collection.json
+        run: |
+          npx --yes newman run tests/postman/NextTurn.postman_collection.json \
+            -e tests/postman/nextturn.postman_environment.json \
+            --reporters cli
+
+      - name: Print API log on failure
+        if: failure() && hashFiles('tests/postman/*.json') != ''
+        run: tail -n 200 /tmp/nextturn-api.log || true
+

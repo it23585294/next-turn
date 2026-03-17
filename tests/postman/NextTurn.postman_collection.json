@@ -1,0 +1,730 @@
+{
+  "info": {
+    "_postman_id": "42c34be4-76d2-4529-a2f5-b1d8b3719808",
+    "name": "NextTurn API Contract Tests",
+    "description": "Contract checks for public NextTurn API endpoints.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "if (!pm.collectionVariables.get('randomSuffix')) {",
+          "  const suffix = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;",
+          "  pm.collectionVariables.set('randomSuffix', suffix);",
+          "  pm.collectionVariables.set('globalUserEmail', `global.${suffix}@example.com`);",
+          "  pm.collectionVariables.set('globalUserPassword', 'SecureP@ss1');",
+          "  pm.collectionVariables.set('tenantUserEmail', `tenant.${suffix}@example.com`);",
+          "  pm.collectionVariables.set('tenantUserPassword', 'SecureP@ss1');",
+          "  pm.collectionVariables.set('tenantUserName', 'Contract Tenant User');",
+          "  pm.collectionVariables.set('randomProfileId', '11111111-1111-1111-1111-111111111111');",
+          "  pm.collectionVariables.set('randomAppointmentId', '22222222-2222-2222-2222-222222222222');",
+          "}",
+          "",
+          "const tomorrow = new Date();",
+          "tomorrow.setDate(tomorrow.getDate() + 1);",
+          "pm.collectionVariables.set('queryDate', tomorrow.toISOString().slice(0, 10));",
+          "pm.collectionVariables.set('slotStart', new Date(Date.now() + 3600 * 1000).toISOString());",
+          "pm.collectionVariables.set('slotEnd', new Date(Date.now() + 7200 * 1000).toISOString());"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "Organisations",
+      "item": [
+        {
+          "name": "Register Organisation - Positive",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orgName\": \"Contract Org {{randomSuffix}}\",\n  \"addressLine1\": \"1 Contract Street\",\n  \"city\": \"Colombo\",\n  \"postalCode\": \"10000\",\n  \"country\": \"LK\",\n  \"orgType\": \"Government\",\n  \"adminName\": \"Contract Admin\",\n  \"adminEmail\": \"admin.{{randomSuffix}}@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/organisations",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "organisations"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 201', function () { pm.response.to.have.status(201); });",
+                  "const body = pm.response.json();",
+                  "pm.test('organisationId exists', function () { pm.expect(body.organisationId).to.be.a('string').and.not.empty; });",
+                  "pm.test('loginPath exists', function () { pm.expect(body.loginPath).to.be.a('string').and.not.empty; });",
+                  "pm.collectionVariables.set('orgTenantId', body.organisationId);",
+                  "pm.collectionVariables.set('orgAdminEmail', `admin.${pm.collectionVariables.get('randomSuffix')}@example.com`);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Register Organisation - Negative Duplicate",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orgName\": \"Contract Org {{randomSuffix}}\",\n  \"addressLine1\": \"1 Contract Street\",\n  \"city\": \"Colombo\",\n  \"postalCode\": \"10000\",\n  \"country\": \"LK\",\n  \"orgType\": \"Government\",\n  \"adminName\": \"Contract Admin\",\n  \"adminEmail\": \"admin.{{randomSuffix}}@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/organisations",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "organisations"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 400 or 409', function () { pm.expect([400, 409]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Resolve Organisation Login - Positive",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"adminEmail\": \"{{orgAdminEmail}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/organisations/resolve-login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "organisations", "resolve-login"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Resolve Tenant - Edge Invalid Slug",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/organisations/resolve-tenant?slug=missing-{{randomSuffix}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "organisations", "resolve-tenant"],
+              "query": [
+                { "key": "slug", "value": "missing-{{randomSuffix}}" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 400 or 422', function () { pm.expect([400, 422]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register Global - Positive",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Global Contract User\",\n  \"email\": \"{{globalUserEmail}}\",\n  \"phone\": null,\n  \"password\": \"{{globalUserPassword}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register-global",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register-global"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 201', function () { pm.response.to.have.status(201); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Register Global - Negative Duplicate Email",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Global Contract User\",\n  \"email\": \"{{globalUserEmail}}\",\n  \"phone\": null,\n  \"password\": \"{{globalUserPassword}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register-global",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register-global"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 400', function () { pm.response.to.have.status(400); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login Global - Positive Contract",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{globalUserEmail}}\",\n  \"password\": \"{{globalUserPassword}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login-global",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login-global"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.test('contract fields exist', function () {",
+                  "  pm.expect(body).to.have.property('accessToken');",
+                  "  pm.expect(body).to.have.property('userId');",
+                  "  pm.expect(body).to.have.property('name');",
+                  "  pm.expect(body).to.have.property('email');",
+                  "  pm.expect(body).to.have.property('role');",
+                  "  pm.expect(body.accessToken).to.be.a('string').and.not.empty;",
+                  "});",
+                  "pm.collectionVariables.set('globalAccessToken', body.accessToken);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login Global - Negative Wrong Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{globalUserEmail}}\",\n  \"password\": \"WrongP@ss9\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login-global",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login-global"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 400', function () { pm.response.to.have.status(400); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Queues",
+      "item": [
+        {
+          "name": "Dev Seed - Prepare Tenant + Queue",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/api/dev/seed",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "dev", "seed"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('tenantId', body.tenantId);",
+                  "pm.collectionVariables.set('queueId', body.queueId);",
+                  "pm.test('seed values saved', function () {",
+                  "  pm.expect(pm.collectionVariables.get('tenantId')).to.be.a('string').and.not.empty;",
+                  "  pm.expect(pm.collectionVariables.get('queueId')).to.be.a('string').and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Register Tenant User - Positive",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Tenant-Id", "value": "{{tenantId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{tenantUserName}}\",\n  \"email\": \"{{tenantUserEmail}}\",\n  \"phone\": null,\n  \"password\": \"{{tenantUserPassword}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 201', function () { pm.response.to.have.status(201); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login Tenant User - Positive Contract",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Tenant-Id", "value": "{{tenantId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{tenantUserEmail}}\",\n  \"password\": \"{{tenantUserPassword}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.test('tenant login contract fields', function () {",
+                  "  pm.expect(body).to.have.property('accessToken');",
+                  "  pm.expect(body).to.have.property('userId');",
+                  "  pm.expect(body).to.have.property('email');",
+                  "});",
+                  "pm.collectionVariables.set('tenantAccessToken', body.accessToken);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Join Queue - Positive",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{tenantAccessToken}}" },
+              { "key": "X-Tenant-Id", "value": "{{tenantId}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/queues/{{queueId}}/join",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "queues", "{{queueId}}", "join"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.test('join response has ticket', function () { pm.expect(body).to.have.property('ticketNumber'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Queue Status - Positive",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{tenantAccessToken}}" },
+              { "key": "X-Tenant-Id", "value": "{{tenantId}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/queues/{{queueId}}/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "queues", "{{queueId}}", "status"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get My Active Entries - Positive",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{tenantAccessToken}}" },
+              { "key": "X-Tenant-Id", "value": "{{tenantId}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/queues/my-entries",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "queues", "my-entries"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Leave Queue - Positive",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{tenantAccessToken}}" },
+              { "key": "X-Tenant-Id", "value": "{{tenantId}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/queues/{{queueId}}/leave",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "queues", "{{queueId}}", "leave"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 204', function () { pm.response.to.have.status(204); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Queue - Negative Non-Admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{tenantAccessToken}}" },
+              { "key": "X-Tenant-Id", "value": "{{tenantId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Queue {{randomSuffix}}\",\n  \"maxCapacity\": 10,\n  \"averageServiceTimeSeconds\": 120\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/queues",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "queues"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 403 for non-admin', function () { pm.response.to.have.status(403); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Call Next - Staff Action Negative Non-Staff",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{tenantAccessToken}}" },
+              { "key": "X-Tenant-Id", "value": "{{tenantId}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/queues/{{queueId}}/call-next",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "queues", "{{queueId}}", "call-next"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 403 for non-staff', function () { pm.response.to.have.status(403); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Appointments",
+      "item": [
+        {
+          "name": "Get My Bookings - Positive",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{tenantAccessToken}}" },
+              { "key": "X-Tenant-Id", "value": "{{tenantId}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/appointments/my-bookings",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "appointments", "my-bookings"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.test('response is array', function () { pm.expect(body).to.be.an('array'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Available Slots - Edge Unknown Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{tenantAccessToken}}" },
+              { "key": "X-Tenant-Id", "value": "{{tenantId}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/appointments/slots?organisationId={{tenantId}}&appointmentProfileId={{randomProfileId}}&date={{queryDate}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "appointments", "slots"],
+              "query": [
+                { "key": "organisationId", "value": "{{tenantId}}" },
+                { "key": "appointmentProfileId", "value": "{{randomProfileId}}" },
+                { "key": "date", "value": "{{queryDate}}" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is one of expected contract outcomes', function () { pm.expect([200, 400, 422]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Book Appointment - Edge Profile Contract",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{tenantAccessToken}}" },
+              { "key": "X-Tenant-Id", "value": "{{tenantId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"organisationId\": \"{{tenantId}}\",\n  \"appointmentProfileId\": \"{{randomProfileId}}\",\n  \"slotStart\": \"{{slotStart}}\",\n  \"slotEnd\": \"{{slotEnd}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/appointments",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "appointments"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is one of expected contract outcomes', function () { pm.expect([200, 400, 409, 422]).to.include(pm.response.code); });",
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  pm.test('success contract includes appointmentId', function () { pm.expect(body.appointmentId).to.be.a('string').and.not.empty; });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reschedule Appointment - Negative Unknown Appointment",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{tenantAccessToken}}" },
+              { "key": "X-Tenant-Id", "value": "{{tenantId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"newSlotStart\": \"{{slotStart}}\",\n  \"newSlotEnd\": \"{{slotEnd}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/appointments/{{randomAppointmentId}}/reschedule",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "appointments", "{{randomAppointmentId}}", "reschedule"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is one of expected contract outcomes', function () { pm.expect([400, 404, 409, 422]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cancel Appointment - Negative Unknown Appointment",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{tenantAccessToken}}" },
+              { "key": "X-Tenant-Id", "value": "{{tenantId}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/appointments/{{randomAppointmentId}}/cancel",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "appointments", "{{randomAppointmentId}}", "cancel"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is one of expected contract outcomes', function () { pm.expect([400, 404, 422]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    { "key": "randomSuffix", "value": "" },
+    { "key": "orgTenantId", "value": "" },
+    { "key": "orgAdminEmail", "value": "" },
+    { "key": "tenantId", "value": "" },
+    { "key": "queueId", "value": "" },
+    { "key": "globalUserEmail", "value": "" },
+    { "key": "globalUserPassword", "value": "" },
+    { "key": "tenantUserEmail", "value": "" },
+    { "key": "tenantUserPassword", "value": "" },
+    { "key": "tenantUserName", "value": "" },
+    { "key": "globalAccessToken", "value": "" },
+    { "key": "tenantAccessToken", "value": "" },
+    { "key": "randomProfileId", "value": "" },
+    { "key": "randomAppointmentId", "value": "" },
+    { "key": "queryDate", "value": "" },
+    { "key": "slotStart", "value": "" },
+    { "key": "slotEnd", "value": "" }
+  ]
+}
