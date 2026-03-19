@@ -76,26 +76,32 @@ namespace NextTurn.Infrastructure.Migrations
                 WHERE p.ShareableLink = '';
                 """);
 
+            // Use dynamic SQL so idempotent scripts don't fail SQL Server
+            // compile-time name resolution for columns added earlier in this migration.
             migrationBuilder.Sql(
                 """
+                DECLARE @sql1 nvarchar(max) = N'
                 UPDATE a
                 SET a.AppointmentProfileId = p.Id
                 FROM Appointments a
                 INNER JOIN AppointmentProfiles p
                     ON p.OrganisationId = a.OrganisationId
-                   AND p.Name = 'Default Appointments'
-                WHERE a.AppointmentProfileId = '00000000-0000-0000-0000-000000000000';
+                   AND p.Name = ''Default Appointments''
+                WHERE a.AppointmentProfileId = ''00000000-0000-0000-0000-000000000000'';';
+                EXEC sp_executesql @sql1;
                 """);
 
             migrationBuilder.Sql(
                 """
+                DECLARE @sql2 nvarchar(max) = N'
                 UPDATE r
                 SET r.AppointmentProfileId = p.Id
                 FROM AppointmentScheduleRules r
                 INNER JOIN AppointmentProfiles p
                     ON p.OrganisationId = r.OrganisationId
-                   AND p.Name = 'Default Appointments'
-                WHERE r.AppointmentProfileId = '00000000-0000-0000-0000-000000000000';
+                   AND p.Name = ''Default Appointments''
+                WHERE r.AppointmentProfileId = ''00000000-0000-0000-0000-000000000000'';';
+                EXEC sp_executesql @sql2;
                 """);
 
             migrationBuilder.CreateIndex(

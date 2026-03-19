@@ -17,10 +17,14 @@ namespace NextTurn.Infrastructure.Migrations
                 maxLength: 64,
                 nullable: true);
 
+            // Use dynamic SQL so generated idempotent scripts don't fail SQL Server
+            // compile-time name resolution when Slug was added earlier in the same batch.
             migrationBuilder.Sql("""
+                DECLARE @sql nvarchar(max) = N'
                 UPDATE [Organisations]
-                SET [Slug] = CONCAT('org-', LOWER(SUBSTRING(CONVERT(varchar(36), [Id]), 1, 8)))
-                WHERE [Slug] IS NULL OR LTRIM(RTRIM([Slug])) = ''
+                SET [Slug] = CONCAT(''org-'', LOWER(SUBSTRING(CONVERT(varchar(36), [Id]), 1, 8)))
+                WHERE [Slug] IS NULL OR LTRIM(RTRIM([Slug])) = ''''';
+                EXEC sp_executesql @sql;
                 """);
 
             migrationBuilder.AlterColumn<string>(
